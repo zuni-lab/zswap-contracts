@@ -1,0 +1,2 @@
+[workspace]
+members = ["pool/*", "manager/*", "library"]
