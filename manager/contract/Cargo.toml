@@ -11,3 +11,7 @@ crate-type = ["cdylib"]
 near-sdk = "4.0.0"
 uint = { version = "0.9.3", default-features = false }
 
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false
+features = ["user-hooks"]
