@@ -1,6 +1,7 @@
 // Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::{log, near_bindgen};
+mod  lock;
 
 // Define the default message
 const DEFAULT_MESSAGE: &str = "Hello";
