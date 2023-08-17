@@ -3444,6 +3444,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "zswap-pool"
+version = "1.0.0"
+dependencies = [
+ "ethnum",
+ "near-sdk",
+ "uint",
+]
+
+[[package]]
 name = "zswap-pool-integration-tests"
 version = "1.0.0"
 dependencies = [
@@ -3457,13 +3466,4 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "workspaces",
-]
-
-[[package]]
-name = "zswap_pool"
-version = "1.0.0"
-dependencies = [
- "cargo-husky",
- "near-sdk",
- "uint",
 ]
