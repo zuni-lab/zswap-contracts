@@ -5,21 +5,20 @@ use near_sdk::serde::{Serialize, Deserialize};
 use ethnum::U256;
 
 pub trait BitMathTrait {
-  fn mostSignificantBit(&self, x: U256) -> u8;
-  fn leastSignificantBit(&self, x: U256) -> u8;
+  fn most_significant_bit(&self, x: U256) -> u8;
+  fn least_significant_bit(&self, x: U256) -> u8;
 }
 
 pub struct BitMath {}
-
 
 impl BitMathTrait for BitMath {
   /// @notice Returns the index of the most significant bit of the number,
   ///     where the least significant bit is at index 0 and the most significant bit is at index 255
   /// @dev The function satisfies the property:
-  ///     x >= 2**mostSignificantBit(x) and x < 2**(mostSignificantBit(x)+1)
+  ///     x >= 2**most_significant_bit(x) and x < 2**(most_significant_bit(x)+1)
   /// @param x the value for which to compute the most significant bit, must be greater than 0
   /// @return r the index of the most significant bit
-  fn mostSignificantBit(&self, mut x: U256) -> u8 {
+  fn most_significant_bit(&self, mut x: U256) -> u8 {
     assert!(x > 0, "Value must be greater than 0");
 
     let mut r: u8 = 0;
@@ -60,10 +59,10 @@ impl BitMathTrait for BitMath {
   /// @notice Returns the index of the least significant bit of the number,
   ///     where the least significant bit is at index 0 and the most significant bit is at index 255
   /// @dev The function satisfies the property:
-  ///     (x & 2**leastSignificantBit(x)) != 0 and (x & (2**(leastSignificantBit(x)) - 1)) == 0)
+  ///     (x & 2**least_significant_bit(x)) != 0 and (x & (2**(least_significant_bit(x)) - 1)) == 0)
   /// @param x the value for which to compute the least significant bit, must be greater than 0
   /// @return r the index of the least significant bit
-  fn leastSignificantBit(&self, mut x: U256) -> u8 {
+  fn least_significant_bit(&self, mut x: U256) -> u8 {
     assert!(x > 0, "Value must be greater than 0");
 
     let mut r: u8 = 255;
@@ -131,10 +130,10 @@ mod tests {
     let bit_math = BitMath::default();
 
     let value: U256 = U256::new(1234567890u128);
-    let msb = bit_math.mostSignificantBit(value);
+    let msb = bit_math.most_significant_bit(value);
     assert_eq!(msb, 30);
 
-    let lsb = bit_math.leastSignificantBit(value);
+    let lsb = bit_math.least_significant_bit(value);
     assert_eq!(lsb, 1);
   }
 }

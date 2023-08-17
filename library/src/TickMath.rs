@@ -21,8 +21,8 @@ impl TickConstants {
 /// @notice Computes sqrt price for ticks of size 1.0001, i.e. sqrt(1.0001^tick) as fixed point Q64.96 numbers. Supports
 /// prices between 2**-128 and 2**128
 pub trait TickMathTrait {
-  fn getSqrtRatioAtTick(&self, tick: i32) -> U256;
-  fn getTickAtSqrtRatio(&self, sqrt_price_x96: U256) -> i32;
+  fn get_sqrt_ratio_at_tick(&self, tick: i32) -> U256;
+  fn get_tick_at_sqrt_ratio(&self, sqrt_price_x96: U256) -> i32;
 }
 
 pub struct TickMath {}
@@ -33,7 +33,7 @@ impl TickMathTrait for TickMath {
   /// @param tick The input tick for the above formula
   /// @return sqrtPriceX96 A Fixed point Q64.96 number representing the sqrt of the ratio of the two assets (token1/token0)
   /// at the given tick
-  fn getSqrtRatioAtTick(&self, tick: i32) -> U256 {
+  fn get_sqrt_ratio_at_tick(&self, tick: i32) -> U256 {
     /// second inequality must be < because the price can never reach the price at the max tick
     let abs_tick = U256::new(if tick < 0 { -tick } else { tick } as u128);
     assert!(abs_tick <= TickConstants::max_sqrt_ratio(), "Tick out of range");
@@ -108,7 +108,7 @@ impl TickMathTrait for TickMath {
 
     // this divides by 1<<32 rounding up to go from a Q128.128 to a Q128.96.
     // we then downcast because we know the result always fits within 160 bits due to our tick input constraint
-    // we round up in the division so getTickAtSqrtRatio of the output price is always consistent
+    // we round up in the division so get_tick_at_sqrt_ratio of the output price is always consistent
     let shifted_ratio: U256 = (ratio >> 32) + U256::new(if ratio % (1 << 32) == 0 { 0 } else { 1 });
     shifted_ratio
   }
@@ -118,7 +118,7 @@ impl TickMathTrait for TickMath {
   /// ever return.
   /// @param sqrtPriceX96 The sqrt ratio for which to compute the tick as a Q64.96
   /// @return tick The greatest tick for which the ratio is less than or equal to the input ratio
-  fn getTickAtSqrtRatio(&self, sqrt_price_x96: U256) -> i32 {
+  fn get_tick_at_sqrt_ratio(&self, sqrt_price_x96: U256) -> i32 {
     /// second inequality must be < because the price can never reach the price at the max tick
     assert!(
       sqrt_price_x96 >= TickConstants::MIN_SQRT_RATIO && sqrt_price_x96 < TickConstants::max_sqrt_ratio(),
@@ -181,7 +181,7 @@ impl TickMathTrait for TickMath {
 
     if tick_low == tick_hi {
       tick_low
-    } else if self.getSqrtRatioAtTick(tick_hi) <= sqrt_price_x96 {
+    } else if self.get_sqrt_ratio_at_tick(tick_hi) <= sqrt_price_x96 {
       tick_hi
     } else {
       tick_low
@@ -210,7 +210,7 @@ mod tests {
     testing_env!(context);
 
     let tick_math = TickMath::default();
-    assert_eq!(tick_math.getTickAtSqrtRatio(U256::new(5602223755577321903022134995689)), 85176);
-    assert_eq!(tick_math.getSqrtRatioAtTick(85176), 5602223755577321903022134995689); // 5602277097478614198912276234240
+    assert_eq!(tick_math.get_tick_at_sqrt_ratio(U256::new(5602223755577321903022134995689)), 85176);
+    assert_eq!(tick_math.get_sqrt_ratio_at_tick(85176), 5602223755577321903022134995689); // 5602277097478614198912276234240
   }
 }
