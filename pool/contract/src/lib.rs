@@ -1,13 +1,16 @@
 use ethnum::U256;
 // Find all our documentation at https://docs.near.org
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::borsh::{ self, BorshDeserialize, BorshSerialize };
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
-use near_sdk::{env, near_bindgen, AccountId, BorshStorageKey, CryptoHash, Promise};
+use near_sdk::{ env, near_bindgen, AccountId, BorshStorageKey, CryptoHash, Promise };
 
 use crate::account::Account;
+use crate::error::{ INVALID_TICK_RANGE, ZERO_LIQUIDITY };
 use crate::manager::ext_ft_zswap_manager;
 use crate::utils::*;
+
+use zswap_math_library::TickMath;
 
 mod account;
 mod callback;
@@ -15,6 +18,10 @@ mod error;
 mod internal;
 mod manager;
 mod utils;
+
+// TODO: remove this
+struct Tick;
+struct Position;
 
 // Define the contract structure
 #[near_bindgen]
@@ -32,6 +39,8 @@ pub struct Contract {
     slot0: Slot0,
     liquidity: u128,
 
+    //TODO: import Tick and Position from lib
+
     ticks: LookupMap<i32, Tick>, // import from `lib`
     tick_bitmap: LookupMap<i16, U256>,
     positions: LookupMap<CryptoHash, Position>, // import from `lib`
@@ -46,8 +55,12 @@ pub enum StorageKey {
     Pools,
     Accounts,
     FeeToTickSpacing,
-    Shares { pool_id: u32 },
-    AccountTokens { account_id: AccountId },
+    Shares {
+        pool_id: u32,
+    },
+    AccountTokens {
+        account_id: AccountId,
+    },
 }
 
 // Implement the contract structure
@@ -59,7 +72,7 @@ impl Contract {
         token0: AccountId,
         token1: AccountId,
         tick_spacing: u32,
-        fee: u32,
+        fee: u32
     ) -> Self {
         Self {
             factory,
@@ -98,27 +111,68 @@ impl Contract {
     pub fn mint(
         &mut self,
         owner: AccountId,
-        lower_tick: u32,
-        upper_tick: u32,
+        lower_tick: i32,
+        upper_tick: i32,
         amount: u128,
-        data: Vec<u8>,
+        data: Vec<u8>
     ) -> Promise {
         // === IMPLEMENT HERE ===
         todo!("calculate amount0 and amount1");
-        let amount0 = 0;
-        let amount1 = 0;
-        // ======================
+
+        let check1 = lower_tick >= upper_tick;
+        let check2 = lower_tick < TickMath::TickConstants::MIN_TICK;
+        let check3 = upper_tick > TickMath::TickConstants::MAX_TICK;
+        if check1 || check2 || check3 {
+            panic!("{}", INVALID_TICK_RANGE);
+        }
+
+        // if (amount == 0) revert ZeroLiquidity();
+
+        // (, int256 amount0Int, int256 amount1Int) = _modifyPosition(
+        //     ModifyPositionParams({
+        //         owner: owner,
+        //         lowerTick: lowerTick,
+        //         upperTick: upperTick,
+        //         liquidityDelta: int128(amount)
+        //     })
+        // );
+
+        if amount == 0 {
+            panic!("{}", ZERO_LIQUIDITY);
+        }
+        let (_, amount_0_int, amount_1_int) = self.modify_position(
+            owner,
+            lower_tick,
+            upper_tick,
+            amount as i128
+        );
+
+        //TODO: cast to u256 here
+        let amount_0 = amount_0_int as u128;
+        let amount_1 = amount_1_int as u128;
 
         let zswap_manager = env::predecessor_account_id();
 
-        let amount0_before_promise = self.get_balance0_promise();
-        let amount1_before_promise = self.get_balance1_promise();
+        let amount0_before_promise = if amount_0 > 0 {
+            self.get_balance0_promise()
+        } else {
+            Promise::new(zswap_manager)
+        };
+
+        let amount1_before_promise = if amount_1 > 0 {
+            self.get_balance1_promise()
+        } else {
+            Promise::new(zswap_manager)
+        };
+
+        // ======================
 
         amount0_before_promise
             .and(amount1_before_promise)
             .and(
-                ext_ft_zswap_manager::ext(zswap_manager)
-                    .transfer_approved_tokens_to_mint(amount0, amount1, data),
+                ext_ft_zswap_manager
+                    ::ext(zswap_manager)
+                    .transfer_approved_tokens_to_mint(amount_0, amount_1, data)
             )
             .then(Self::ext(env::current_account_id()).mint_callback_post_tokens_transfer())
     }
@@ -134,7 +188,7 @@ impl Contract {
         token_out: AccountId,
         amount_in: u128,
         amount_out_min: u128,
-        recipient: AccountId,
+        recipient: AccountId
     ) {
         todo!("swap");
     }
