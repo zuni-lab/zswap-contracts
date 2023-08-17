@@ -3435,7 +3435,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "zswap-math-libary"
+name = "zswap-math-library"
 version = "0.1.0"
 dependencies = [
  "cargo-husky",
@@ -3450,6 +3450,7 @@ dependencies = [
  "ethnum",
  "near-sdk",
  "uint",
+ "zswap-math-library",
 ]
 
 [[package]]
