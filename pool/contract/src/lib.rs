@@ -116,29 +116,15 @@ impl Contract {
         amount: u128,
         data: Vec<u8>
     ) -> Promise {
-        // === IMPLEMENT HERE ===
-        todo!("calculate amount0 and amount1");
-
         let check1 = lower_tick >= upper_tick;
         let check2 = lower_tick < TickMath::TickConstants::MIN_TICK;
         let check3 = upper_tick > TickMath::TickConstants::MAX_TICK;
         if check1 || check2 || check3 {
-            panic!("{}", INVALID_TICK_RANGE);
+            env::panic_str(INVALID_TICK_RANGE);
         }
 
-        // if (amount == 0) revert ZeroLiquidity();
-
-        // (, int256 amount0Int, int256 amount1Int) = _modifyPosition(
-        //     ModifyPositionParams({
-        //         owner: owner,
-        //         lowerTick: lowerTick,
-        //         upperTick: upperTick,
-        //         liquidityDelta: int128(amount)
-        //     })
-        // );
-
         if amount == 0 {
-            panic!("{}", ZERO_LIQUIDITY);
+            env::panic_str(ZERO_LIQUIDITY);
         }
         let (_, amount_0_int, amount_1_int) = self.modify_position(
             owner,
@@ -147,7 +133,6 @@ impl Contract {
             amount as i128
         );
 
-        //TODO: cast to u256 here
         let amount_0 = amount_0_int as u128;
         let amount_1 = amount_1_int as u128;
 
@@ -156,16 +141,14 @@ impl Contract {
         let amount0_before_promise = if amount_0 > 0 {
             self.get_balance0_promise()
         } else {
-            Promise::new(zswap_manager)
+            Promise::new(zswap_manager.clone())
         };
 
         let amount1_before_promise = if amount_1 > 0 {
             self.get_balance1_promise()
         } else {
-            Promise::new(zswap_manager)
+            Promise::new(zswap_manager.clone())
         };
-
-        // ======================
 
         amount0_before_promise
             .and(amount1_before_promise)
