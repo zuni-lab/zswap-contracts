@@ -724,6 +724,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "ethnum"
+version = "1.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0198b9d0078e0f30dedc7acbb21c974e838fc8fae3ee170128658a98cb2c1c04"
+
+[[package]]
 name = "event-listener"
 version = "2.5.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3426,6 +3432,15 @@ name = "zswap-math-libary"
 version = "0.1.0"
 
 [[package]]
+name = "zswap-pool"
+version = "1.0.0"
+dependencies = [
+ "ethnum",
+ "near-sdk",
+ "uint",
+]
+
+[[package]]
 name = "zswap-pool-integration-tests"
 version = "1.0.0"
 dependencies = [
@@ -3439,12 +3454,4 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "workspaces",
-]
-
-[[package]]
-name = "zswap_pool"
-version = "1.0.0"
-dependencies = [
- "near-sdk",
- "uint",
 ]
