@@ -11,6 +11,7 @@ use crate::utils::*;
 
 mod account;
 mod callback;
+mod error;
 mod internal;
 mod manager;
 mod utils;
