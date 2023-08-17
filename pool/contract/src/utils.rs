@@ -4,9 +4,9 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Slot0 {
     // Current sqrt(P)
-    sqrt_price_x96: u128,
+    pub sqrt_price_x96: u128,
     // Current tick
-    tick: i32,
+    pub tick: i32,
 }
 
 pub struct SwapState {
