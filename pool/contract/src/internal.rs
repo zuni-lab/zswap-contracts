@@ -22,6 +22,8 @@ impl Contract {
         upper_tick: i32,
         liquidity_delta: i128
     ) -> (String, i128, i128) {
+        //TODO: implement this function correctly
+        
         let return_message = format!(
             "modify_position({}, {}, {}, {})",
             address,
