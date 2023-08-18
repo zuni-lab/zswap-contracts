@@ -141,18 +141,17 @@ impl Contract {
         //     Promise::new(zswap_manager.clone())
         // };
 
-        Promise::new(env::current_account_id())
-            .and(self.get_balance0_promise()) // get balance of token0 before transfer
-            .and(self.get_balance1_promise()) // get balance of token1 before transfer
+        self.get_balance0_promise() // get balance of token_0 before transfer
+            .and(self.get_balance1_promise()) // get balance of token_1 before transfer
             .and(
                 ext_ft_zswap_manager::ext(zswap_manager)
-                    .transfer_approved_tokens_to_mint(amount_0, amount_1, data),
+                    .collect_approved_tokens_to_mint(amount_0, amount_1, data),
             )
-            .and(self.get_balance0_promise()) // get balance of token0 after transfer
-            .and(self.get_balance1_promise()) // get balance of token1 after transfer
+            .and(self.get_balance0_promise()) // get balance of token_0 after transfer
+            .and(self.get_balance1_promise()) // get balance of token_1 after transfer
             .then(
                 Self::ext(env::current_account_id())
-                    .mint_callback_post_tokens_transfer(amount_0, amount_1),
+                    .mint_callback_post_collected_tokens(amount_0, amount_1),
             )
     }
 
