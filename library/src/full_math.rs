@@ -13,54 +13,43 @@ impl Default for FullMath {
 }
 
 pub trait MathOps {
-  fn gt(self, other: Self) -> U256;
-  fn lt(self, other: Self) -> U256;
-  fn sub(self, other: Self) -> U256;
-  fn add(self, other: Self) -> U256;
-  fn div(self, other: Self) -> U256;
-  fn modulo(self, other: Self) -> U256;
-  fn mul(self, other: Self) -> U256;
-  fn mulmod(self, other: Self, modulo: Self) -> U256;
-  fn muldiv(self, other: Self, modulo: Self) -> U256;
-  fn addmod(self, other: Self, modulo: Self) -> U256;
+  fn gt(self, other: Self) -> Self;
+  fn lt(self, other: Self) -> Self;
+  fn sub(self, other: Self) -> Self;
+  fn add(self, other: Self) -> Self;
+  fn div(self, other: Self) -> Self;
+  fn modulo(self, other: Self) -> Self;
+  fn mul(self, other: Self) -> Self;
+  fn mulmod(self, other: Self, modulo: Self) -> Self;
+  fn muldiv(self, other: Self, modulo: Self) -> Self;
+  fn addmod(self, other: Self, modulo: Self) -> Self;
 }
 
 impl MathOps for U256 {
-  fn gt(self, other: Self) -> U256 {
+  fn gt(self, other: Self) -> Self {
     if self > other { U256::ONE } else { U256::ZERO }
   }
-  fn lt(self, other: Self) -> U256 {
+  fn lt(self, other: Self) -> Self {
     if self < other { U256::ONE } else { U256::ZERO }
   }
-  fn sub(self, other: Self) -> U256 {
+  fn sub(self, other: Self) -> Self {
     self.overflowing_sub(other).0
   }
-  fn add(self, other: Self) -> U256 {
+  fn add(self, other: Self) -> Self {
     return self.overflowing_add(other).0;
   }
-  fn div(self, other: Self) -> U256 {
+  fn div(self, other: Self) -> Self {
     return self / other;
   }
-  fn modulo(self, other: Self) -> U256 {
+  fn modulo(self, other: Self) -> Self {
     return self % other;
   }
-  fn mul(self, other: Self) -> U256 {
+  fn mul(self, other: Self) -> Self {
     return self.overflowing_mul(other).0;
   }  // https://locklessinc.com/articles/256bit_arithmetic/
 
-  fn addmod(self, other: Self, modulo: Self) -> U256 {
-    let a = self % modulo;
-    let b = other % modulo;
-    let remainingA = modulo - a;
-    let res = if remainingA <= b {
-      b - remainingA
-    } else {
-      a + b
-    };
-    res
-  }
   // binary multiplication
-  fn mulmod(self, other: Self, modulo: Self) -> U256 {
+  fn mulmod(self, other: Self, modulo: Self) -> Self {
     let mut a = self;
     let mut b = other;
     a %= modulo;
@@ -76,8 +65,19 @@ impl MathOps for U256 {
 
     return result;
   }
-  fn muldiv(self, other: Self, modulo: Self) -> U256 {
+  fn muldiv(self, other: Self, modulo: Self) -> Self {
     return self * other / modulo;
+  }
+  fn addmod(self, other: Self, modulo: Self) -> Self {
+    let a = self % modulo;
+    let b = other % modulo;
+    let remaining_a = modulo - a;
+    let res = if remaining_a <= b {
+      b - remaining_a
+    } else {
+      a + b
+    };
+    res
   }
 }
 
@@ -85,10 +85,10 @@ impl MathOps for U256 {
 ///! Contains 512-bit math functions
 ///! Facilitates multiplication and division that can have overflow of an intermediate value without any loss of precision
 ///! Handles "phantom overflow" i.e., allows multiplication and division where an intermediate value overflows 256 bits
-trait FullMathTrait {
+pub trait FullMathTrait {
   fn mul_div(a: U256, b: U256, denominator: U256) -> U256;
   fn mul_div_rounding_up(a: U256, b: U256, denominator: U256) -> U256;
-  fn unsafe_div_rounding(x: U256, y: U256) -> U256;
+  fn unsafe_div_rounding_up(x: U256, y: U256) -> U256;
 }
 
 impl FullMathTrait for FullMath {
@@ -193,7 +193,7 @@ impl FullMathTrait for FullMath {
     }
   }
 
-  fn unsafe_div_rounding(x: U256, y: U256) -> U256 {
+  fn unsafe_div_rounding_up(x: U256, y: U256) -> U256 {
     let z = MathOps::add(MathOps::div(x, y), MathOps::gt(MathOps::modulo(x, y), U256::ZERO));
     z
   }
@@ -207,6 +207,7 @@ pub trait FullMathEchidnaTest {
   fn check_mul_div_rounding(x: U256, y: U256, d: U256);
   fn check_mul_div(x: U256, y: U256, d: U256);
   fn check_mul_div_rounding_up(x: U256, y: U256, d: U256);
+  fn unsafe_div_round_up(x: U256, y: U256) -> U256;
 }
 
 impl FullMathEchidnaTest for FullMathTestEngine {
@@ -258,12 +259,22 @@ impl FullMathEchidnaTest for FullMathTestEngine {
     assert!(x2.checked_sub(x).unwrap() < d);
     assert!(y2.checked_sub(y).unwrap() < d);
   }
+
+  /// @notice Returns ceil(x / y)
+  /// @dev division by 0 has unspecified behavior, and must be checked externally
+  /// @param x The dividend
+  /// @param y The divisor
+  /// @return z The quotient, ceil(x / y)
+  fn unsafe_div_round_up(x: U256, y: U256) -> U256 {
+    let z = MathOps::add(MathOps::div(x, y), MathOps::gt(MathOps::modulo(x, y), U256::ZERO));
+    z
+  }
 }
 
 #[cfg(test)]
 mod tests {
   use std::str::FromStr;
-  use crate::FullMath::MathOps;
+  use crate::full_math::MathOps;
   use super::*;
 
   #[test]
@@ -275,7 +286,7 @@ mod tests {
   }
 
   use std::panic;
-  use crate::FixedPoint128::FixedPoint128;
+  use crate::fixed_point_128::FixedPoint128;
 
   #[test]
   fn test_mul_div() {
@@ -423,7 +434,7 @@ mod tests {
       } else {
         let result = panic::catch_unwind(|| {
           let floored = FullMath::mul_div(x, y, d);
-          let mut ceiled = FullMath::mul_div_rounding_up(x, y, d);
+          let ceiled = FullMath::mul_div_rounding_up(x, y, d);
 
           let remainder = MathOps::mulmod(x, y, d);
 
@@ -435,8 +446,8 @@ mod tests {
         });
 
         match result {
-          Ok(diffLessThanOrEqualTo1) => {
-            assert_eq!(diffLessThanOrEqualTo1, true);
+          Ok(diff_less_than_or_equal_to_1) => {
+            assert_eq!(diff_less_than_or_equal_to_1, true);
           }
           Err(_) => {}
         }

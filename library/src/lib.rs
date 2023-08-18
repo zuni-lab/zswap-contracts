@@ -1,13 +1,16 @@
 #![allow(unused_doc_comments)]
 #![allow(dead_code)]
 
-pub mod TickMath;
-pub mod BitMath;
-pub mod FixedPoint128;
-pub mod FixedPoint96;
-pub mod Path;
-pub mod Math;
-pub mod FullMath;
+pub mod tick_math;
+pub mod bit_math;
+pub mod fixed_point_128;
+pub mod fixed_point_96;
+pub mod math;
+pub mod full_math;
+mod num160;
+mod liquidity_math;
+mod num24;
+mod swap_math;
 
 pub fn add(left: usize, right: usize) -> usize {
   left + right
