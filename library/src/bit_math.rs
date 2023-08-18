@@ -1,12 +1,12 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::env;
-use near_sdk::ext_contract;
-use near_sdk::serde::{Serialize, Deserialize};
+// use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+// use near_sdk::env;
+// use near_sdk::ext_contract;
+// use near_sdk::serde::{Serialize, Deserialize};
 use ethnum::U256;
 
 pub trait BitMathTrait {
-  fn most_significant_bit(&self, x: U256) -> u8;
-  fn least_significant_bit(&self, x: U256) -> u8;
+  fn most_significant_bit(_x: U256) -> u8;
+  fn least_significant_bit(_x: U256) -> u8;
 }
 
 pub struct BitMath {}
@@ -18,7 +18,8 @@ impl BitMathTrait for BitMath {
   ///     x >= 2**most_significant_bit(x) and x < 2**(most_significant_bit(x)+1)
   /// @param x the value for which to compute the most significant bit, must be greater than 0
   /// @return r the index of the most significant bit
-  fn most_significant_bit(&self, mut x: U256) -> u8 {
+  fn most_significant_bit(_x: U256) -> u8 {
+    let mut x = _x;
     assert!(x > 0, "Value must be greater than 0");
 
     let mut r: u8 = 0;
@@ -62,7 +63,8 @@ impl BitMathTrait for BitMath {
   ///     (x & 2**least_significant_bit(x)) != 0 and (x & (2**(least_significant_bit(x)) - 1)) == 0)
   /// @param x the value for which to compute the least significant bit, must be greater than 0
   /// @return r the index of the least significant bit
-  fn least_significant_bit(&self, mut x: U256) -> u8 {
+  fn least_significant_bit(_x: U256) -> u8 {
+    let mut x = _x;
     assert!(x > 0, "Value must be greater than 0");
 
     let mut r: u8 = 255;
@@ -108,18 +110,15 @@ impl BitMathTrait for BitMath {
   }
 }
 
-impl Default for BitMath {
-  fn default() -> Self {
-    Self {}
-  }
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
-  use near_sdk::MockedBlockchain;
+  // use near_sdk::MockedBlockchain;
   use near_sdk::test_utils::VMContextBuilder;
   use near_sdk::testing_env;
+  use super::BitMathTrait;
+  use super::BitMath;
+  use std::str::FromStr;
 
   #[test]
   fn test_bit_math() {
@@ -127,13 +126,34 @@ mod tests {
       .build();
     testing_env!(context);
 
-    let bit_math = BitMath::default();
+    let values = [
+      U256::new(1234567890u128),
+      U256::from_str("57896044618658097711785492504343953926634992332820282019728792004938939802342").unwrap(),
+      U256::from_str("1606938044259977626524336601268507632356953233627996783863721").unwrap(),
+      U256::from_str("1037042214541001286141").unwrap(),
+      !U256::ZERO,
+      U256::from_str("97896044618658097711785492504343953926634992332820282019728792004938939802342").unwrap(),
+    ];
 
-    let value: U256 = U256::new(1234567890u128);
-    let msb = bit_math.most_significant_bit(value);
-    assert_eq!(msb, 30);
-
-    let lsb = bit_math.least_significant_bit(value);
-    assert_eq!(lsb, 1);
+    let n = values.len();
+    for i in 0..n {
+      let x = values[i];
+      let mut lsb = 0;
+      let mut msb = 0;
+      for j in 0..=255 {
+        if ((x >> j) & U256::ONE) == U256::ONE {
+          lsb = j;
+          break;
+        }
+      }
+      for j in 0..=255 {
+        if ((x >> j) & U256::ONE) == U256::ONE {
+          msb = j;
+        }
+      }
+      println!("{} {} {}", x, lsb, msb);
+      assert_eq!(lsb, BitMath::least_significant_bit(x));
+      assert_eq!(msb, BitMath::most_significant_bit(x));
+    }
   }
 }
