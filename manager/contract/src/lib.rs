@@ -1,17 +1,21 @@
-use internal::PoolCallbackData;
+use near_contract_standards::fungible_token::core::ext_ft_core;
 // Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::{env, near_bindgen, AccountId, Promise, PromiseError};
-use pool::Slot0;
-use utils::MintParams;
+use near_sdk::collections::LookupMap;
+use near_sdk::json_types::U128;
+use near_sdk::{env, near_bindgen, AccountId, BorshStorageKey, Promise, PromiseError};
 
-use crate::pool::ext_zswap_pool;
+use crate::ft_account::Account;
+use crate::internal::PoolCallbackData;
+use crate::pool::{ext_zswap_pool, Slot0};
+use crate::utils::MintParams;
 
 mod callback;
 mod error;
+mod ft_account;
+mod ft_receiver;
 mod internal;
 mod pool;
-mod token_receiver;
 mod utils;
 
 // Define the contract structure
@@ -19,6 +23,22 @@ mod utils;
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Contract {
     factory: AccountId,
+    accounts: LookupMap<AccountId, Account>,
+}
+
+#[derive(BorshStorageKey, BorshSerialize)]
+pub(crate) enum StorageKey {
+    Accounts,
+    AccountDepositedTokens {
+        account_id: AccountId,
+    },
+    AccountApprovedTokens {
+        account_id: AccountId,
+    },
+    AccountApprovedSpender {
+        spender_id: AccountId,
+        token_id: AccountId,
+    },
 }
 
 // Implement the contract structure
@@ -26,7 +46,10 @@ pub struct Contract {
 impl Contract {
     #[init]
     pub fn new(factory: AccountId) -> Self {
-        Self { factory }
+        Self {
+            factory,
+            accounts: LookupMap::new(StorageKey::Accounts),
+        }
     }
 
     pub fn get_position(
@@ -43,15 +66,16 @@ impl Contract {
     #[payable]
     pub fn mint(&mut self, params: MintParams) -> Promise {
         let pool = self.get_pool(&params.token_0, &params.token_1, params.fee);
+        let receipient = env::predecessor_account_id();
 
-        ext_zswap_pool::ext(pool).get_slot_0().then(
-            Self::ext(env::current_account_id())
-                .calculate_liquidity(env::predecessor_account_id(), params),
+        ext_zswap_pool::ext(pool.clone()).get_slot_0().then(
+            Self::ext(env::current_account_id()).calculate_liquidity(pool, receipient, params),
         )
     }
 
     #[payable]
     pub fn swap_single(
+        &mut self,
         token_in: AccountId,
         token_out: AccountId,
         fee: u32,
@@ -66,6 +90,7 @@ impl Contract {
 
     #[payable]
     pub fn swap(
+        &mut self,
         tokens: Vec<AccountId>,
         fees: Vec<u32>,
         recipient: AccountId,
@@ -74,10 +99,35 @@ impl Contract {
     ) {
     }
 
+    #[payable]
+    pub fn collect_approved_tokens_to_mint(
+        &mut self,
+        amount_0: U128,
+        amount_1: U128,
+        data: Vec<u8>,
+    ) -> Promise {
+        let pool_callback_data: PoolCallbackData = near_sdk::serde_json::from_slice(&data).unwrap();
+
+        let token_0 = pool_callback_data.token_0;
+        let token_1 = pool_callback_data.token_1;
+        let payer = pool_callback_data.payer;
+
+        let mut payer_account = self.get_account(&payer);
+        payer_account.internal_collect_approved_token(&payer, &token_0, amount_0.0);
+        payer_account.internal_collect_approved_token(&payer, &token_1, amount_1.0);
+
+        let transfer_token_0_promise =
+            ext_ft_core::ext(token_0).ft_transfer(env::predecessor_account_id(), amount_0, None);
+        let transfer_token_1_promise =
+            ext_ft_core::ext(token_1).ft_transfer(env::predecessor_account_id(), amount_1, None);
+        transfer_token_0_promise.and(transfer_token_1_promise)
+    }
+
     #[private]
     pub fn calculate_liquidity(
         &mut self,
         #[callback_result] slot0: Result<Slot0, PromiseError>,
+        pool: AccountId,
         recipient: AccountId,
         params: MintParams,
     ) -> Promise {
@@ -87,11 +137,15 @@ impl Contract {
         let liquidity = 0u128; // TODO: Add TickMath.getLiquidityForAmounts
 
         let pool_callback_data = PoolCallbackData {
-            token_0: params.token_0,
-            token_1: params.token_1,
+            token_0: params.token_0.clone(),
+            token_1: params.token_1.clone(),
             payer: recipient.clone(),
         };
         let data = near_sdk::serde_json::to_vec(&pool_callback_data).unwrap();
+
+        let mut recipient_account = self.get_account(&recipient);
+        recipient_account.internal_approve_token(&pool, &params.token_0, params.amount_0_desired);
+        recipient_account.internal_approve_token(&pool, &params.token_1, params.amount_1_desired);
 
         ext_zswap_pool::ext(env::current_account_id())
             .mint(
@@ -105,6 +159,13 @@ impl Contract {
                 Self::ext(env::current_account_id())
                     .manager_mint_callback(params.amount_0_min, params.amount_1_min),
             )
+    }
+
+    // =========== VIEW METHODS ===========
+    pub fn get_account(&self, account_id: &AccountId) -> Account {
+        self.accounts
+            .get(account_id)
+            .unwrap_or(Account::new(account_id))
     }
 }
 
