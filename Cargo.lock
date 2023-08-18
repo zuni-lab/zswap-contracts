@@ -3422,17 +3422,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "zswap-manager"
-version = "1.0.0"
-dependencies = [
- "cargo-husky",
- "near-contract-standards",
- "near-sdk",
- "uint",
-]
-
-[[package]]
-name = "zswap-manager-integration-tests"
+name = "zswap-integration-tests"
 version = "1.0.0"
 dependencies = [
  "anyhow",
@@ -3445,6 +3435,19 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "workspaces",
+ "zswap-manager",
+ "zswap-pool",
+]
+
+[[package]]
+name = "zswap-manager"
+version = "1.0.0"
+dependencies = [
+ "cargo-husky",
+ "near-contract-standards",
+ "near-sdk",
+ "uint",
+ "zswap-math-library",
 ]
 
 [[package]]
@@ -3464,20 +3467,4 @@ dependencies = [
  "near-sdk",
  "uint",
  "zswap-math-library",
-]
-
-[[package]]
-name = "zswap-pool-integration-tests"
-version = "1.0.0"
-dependencies = [
- "anyhow",
- "borsh",
- "maplit",
- "near-units",
- "pkg-config",
- "serde_json",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "workspaces",
 ]

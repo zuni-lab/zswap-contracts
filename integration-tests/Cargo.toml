@@ -1,5 +1,5 @@
 [package]
-name = "zswap-pool-integration-tests"
+name = "zswap-integration-tests"
 version = "1.0.0"
 publish = false
 edition = "2018"
@@ -16,6 +16,10 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3.11", features = ["env-filter"] }
 workspaces = "0.6.0"
 pkg-config = "0.3.1"
+
+# contracts
+zswap-manager = { path = "../manager" }
+zswap-pool = { path = "../pool" }
 
 [[example]]
 name = "integration-tests"
