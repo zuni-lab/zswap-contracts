@@ -3416,6 +3416,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "zswap-factory"
+version = "1.0.0"
+dependencies = [
+ "hex 0.4.3",
+ "near-sdk",
+ "uint",
+]
+
+[[package]]
 name = "zswap-integration-tests"
 version = "1.0.0"
 dependencies = [
@@ -3443,6 +3452,7 @@ dependencies = [
  "near-sdk",
  "uint",
  "zswap-math-library",
+ "zswap-pool",
 ]
 
 [[package]]
@@ -3458,6 +3468,7 @@ name = "zswap-pool"
 version = "1.0.0"
 dependencies = [
  "ethnum",
+ "near-contract-standards",
  "near-sdk",
  "uint",
  "zswap-math-library",

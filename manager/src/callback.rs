@@ -1,5 +1,5 @@
 use near_sdk::json_types::U128;
-use near_sdk::{env, near_bindgen, PromiseError};
+use near_sdk::{env, log, near_bindgen, PromiseError};
 
 use crate::error::SLIPPAGE_CHECK_FAILED;
 use crate::Contract;
@@ -23,6 +23,14 @@ impl ManagerCallback for Contract {
         amount_0_min: u128,
         amount_1_min: u128,
     ) -> [U128; 2] {
+        if received_amounts_res.is_err() {
+            log!(
+                "manager/callback.rs line 27: {:?}",
+                received_amounts_res.unwrap_err()
+            );
+            return [U128::from(0), U128::from(0)];
+        }
+
         let received_amounts = received_amounts_res.unwrap();
         let amount_0 = received_amounts[0];
         let amount_1 = received_amounts[1];

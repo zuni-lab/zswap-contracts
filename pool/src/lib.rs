@@ -1,3 +1,5 @@
+use core_trait::CoreZswapPool;
+
 use error::ALREADY_INITIALIZED;
 use ethnum::U256;
 // Find all our documentation at https://docs.near.org
@@ -5,7 +7,7 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, near_bindgen, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault, Promise,
+    env, log, near_bindgen, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault, Promise,
 };
 
 use crate::account::Account;
@@ -17,10 +19,11 @@ use zswap_math_library::TickMath;
 
 mod account;
 mod callback;
+pub mod core_trait;
 mod error;
 mod internal;
 mod manager;
-mod utils;
+pub mod utils;
 
 // TODO: remove this
 struct Tick;
@@ -31,8 +34,8 @@ struct Position;
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     factory: AccountId,
-    token0: AccountId,
-    token1: AccountId,
+    token_0: AccountId,
+    token_1: AccountId,
     tick_spacing: u32,
     fee: u32,
 
@@ -61,21 +64,20 @@ pub enum StorageKey {
     AccountTokens { account_id: AccountId },
 }
 
-// Implement the contract structure
 #[near_bindgen]
 impl Contract {
     #[init]
     pub fn new(
         factory: AccountId,
-        token0: AccountId,
-        token1: AccountId,
+        token_0: AccountId,
+        token_1: AccountId,
         tick_spacing: u32,
         fee: u32,
     ) -> Self {
         Self {
             factory,
-            token0,
-            token1,
+            token_0,
+            token_1,
             tick_spacing,
             fee,
             fee_growth_global0_x128: 0,
@@ -104,7 +106,11 @@ impl Contract {
             tick,
         };
     }
+}
 
+// Implement the contract structure
+#[near_bindgen]
+impl CoreZswapPool for Contract {
     /// Mint liquidity for the given account
     /// - `to` - the liquidity recipient
     /// - `amount` - the amount of liquidity
@@ -114,7 +120,7 @@ impl Contract {
     /// 3. Callback to check collected amounts
     /// Note: This function is not called by user directly, but by ZswapManager
     #[payable]
-    pub fn mint(
+    fn mint(
         &mut self,
         owner: AccountId,
         lower_tick: i32,
@@ -155,8 +161,11 @@ impl Contract {
         self.get_balance0_promise() // get balance of token_0 before transfer
             .and(self.get_balance1_promise()) // get balance of token_1 before transfer
             .and(
-                ext_ft_zswap_manager::ext(zswap_manager)
-                    .collect_approved_tokens_to_mint(amount_0, amount_1, data),
+                ext_ft_zswap_manager::ext(zswap_manager).collect_approved_tokens_to_mint(
+                    U128::from(amount_0),
+                    U128::from(amount_1),
+                    data,
+                ),
             )
             .and(self.get_balance0_promise()) // get balance of token_0 after transfer
             .and(self.get_balance1_promise()) // get balance of token_1 after transfer
@@ -167,12 +176,13 @@ impl Contract {
     }
 
     #[payable]
-    pub fn burn(from: AccountId, amount: u128) {
+    fn burn(&mut self, from: AccountId, amount: u128) {
         todo!("burn");
     }
 
     #[payable]
-    pub fn swap(
+    fn swap(
+        &mut self,
         token_in: AccountId,
         token_out: AccountId,
         amount_in: u128,
@@ -183,11 +193,11 @@ impl Contract {
     }
 
     #[payable]
-    pub fn collect(token_in: AccountId) {
+    fn collect(&mut self, token_in: AccountId) {
         todo!("collect");
     }
 
-    pub fn get_slot_0(&self) -> Slot0 {
+    fn get_slot_0(&self) -> Slot0 {
         self.slot_0.clone()
     }
 }

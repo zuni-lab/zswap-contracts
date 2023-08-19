@@ -1,19 +1,16 @@
 [package]
-name = "zswap-manager"
+name = "zswap-factory"
 version = "1.0.0"
 authors = ["DV Lab"]
 edition = "2021"
 
 [lib]
-crate-type = ["cdylib", "rlib"]
+crate-type = ["cdylib"]
 
 [dependencies]
 near-sdk = "4.0.0"
-near-contract-standards = "4.0.0"
 hex = "0.4.3"
 uint = { version = "0.9.3", default-features = false }
-zswap-math-library = { path = "../library" }
-zswap-pool = { path = "../pool" }
 
 # [dev-dependencies.cargo-husky]
 # version = "1"

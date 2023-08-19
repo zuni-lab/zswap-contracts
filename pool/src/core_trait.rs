@@ -1,16 +1,9 @@
-use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::Promise;
-use near_sdk::{ext_contract, json_types::U128, AccountId};
+use near_sdk::{ext_contract, json_types::U128, AccountId, Promise};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[serde(crate = "near_sdk::serde")]
-pub struct Slot0 {
-    pub sqrt_price_x96: U128,
-    pub tick: i32,
-}
+use crate::utils::Slot0;
 
-#[ext_contract(ext_zswap_pool)]
-pub trait ZswapPool {
+#[ext_contract(ext_zswap_pool_core)]
+pub trait CoreZswapPool {
     fn mint(
         &mut self,
         owner: AccountId,
@@ -28,6 +21,10 @@ pub trait ZswapPool {
         amount_out_min: u128,
         recipient: AccountId,
     );
+
+    fn burn(&mut self, from: AccountId, amount: u128);
+
+    fn collect(&mut self, token_in: AccountId);
 
     fn get_slot_0(&self) -> Slot0;
 }

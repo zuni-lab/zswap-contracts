@@ -1,5 +1,5 @@
 [workspace]
-members = ["library", "pool", "manager", "integration-tests"]
+members = ["library", "pool", "manager", "factory", "integration-tests"]
 
 [profile.dev]
 codegen-units = 1
