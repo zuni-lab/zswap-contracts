@@ -2,15 +2,9 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-use ethnum::{AsU256, U256};
+use ethnum::{U256, AsU256};
 
 pub struct FullMath;
-
-impl Default for FullMath {
-  fn default() -> Self {
-    Self {}
-  }
-}
 
 pub trait MathOps {
   fn gt(self, other: Self) -> Self;
@@ -21,7 +15,7 @@ pub trait MathOps {
   fn modulo(self, other: Self) -> Self;
   fn mul(self, other: Self) -> Self;
   fn mulmod(self, other: Self, modulo: Self) -> Self;
-  fn muldiv(self, other: Self, modulo: Self) -> Self;
+  fn unsafe_muldiv(self, other: Self, modulo: Self) -> Self;
   fn addmod(self, other: Self, modulo: Self) -> Self;
 }
 
@@ -65,7 +59,7 @@ impl MathOps for U256 {
 
     return result;
   }
-  fn muldiv(self, other: Self, modulo: Self) -> Self {
+  fn unsafe_muldiv(self, other: Self, modulo: Self) -> Self {
     return self * other / modulo;
   }
   fn addmod(self, other: Self, modulo: Self) -> Self {
@@ -286,19 +280,19 @@ mod tests {
   }
 
   use std::panic;
-  use crate::fixed_point_128::FixedPoint128;
+  use crate::fixed_point_128;
 
   #[test]
   fn test_mul_div() {
     // reverts if denominator is 0
     assert!(panic::catch_unwind(|| {
-      FullMath::mul_div(FixedPoint128::Q128(), U256::new(5), U256::new(0));
+      FullMath::mul_div(fixed_point_128::get_q128(), U256::new(5), U256::new(0));
     }).is_err());
     // reverts if denominator is 0 and numerator overflows
     assert!(panic::catch_unwind(|| {
-      FullMath::mul_div(FixedPoint128::Q128(), FixedPoint128::Q128(), U256::new(0));
+      FullMath::mul_div(fixed_point_128::get_q128(), fixed_point_128::get_q128(), U256::new(0));
     }).is_err());
-    assert_eq!(FullMath::mul_div(FixedPoint128::Q128(), FixedPoint128::Q128(), U256::MAX), U256::new(1));
+    assert_eq!(FullMath::mul_div(fixed_point_128::get_q128(), fixed_point_128::get_q128(), U256::MAX), U256::new(1));
     // overflow
     assert!(panic::catch_unwind(|| {
       FullMath::mul_div(U256::MAX, U256::MAX, U256::MAX - 1);
@@ -311,27 +305,27 @@ mod tests {
 
     // accurate without phantom overflow
     {
-      let x = FixedPoint128::Q128();
-      let y = FullMath::mul_div(U256::new(50), FixedPoint128::Q128(), U256::new(100));
-      let modulo = FullMath::mul_div(U256::new(150), FixedPoint128::Q128(), U256::new(100));
-      let answer = FixedPoint128::Q128() / U256::new(3);
+      let x = fixed_point_128::get_q128();
+      let y = FullMath::mul_div(U256::new(50), fixed_point_128::get_q128(), U256::new(100));
+      let modulo = FullMath::mul_div(U256::new(150), fixed_point_128::get_q128(), U256::new(100));
+      let answer = fixed_point_128::get_q128() / U256::new(3);
       assert_eq!(FullMath::mul_div(x, y, modulo), answer);
     }
 
     // accurate with phantom overflow
     {
-      let x = FixedPoint128::Q128();
+      let x = fixed_point_128::get_q128();
       let y = x * U256::new(35);
       let modulo = x * U256::new(8);
-      let answer = U256::new(4375) * FixedPoint128::Q128() / U256::new(1000);
+      let answer = U256::new(4375) * fixed_point_128::get_q128() / U256::new(1000);
       assert_eq!(FullMath::mul_div(x, y, modulo), answer);
     }
     // accurate with phantom overflow and repeating decimal
     {
-      let x = FixedPoint128::Q128();
+      let x = fixed_point_128::get_q128();
       let y = x * U256::new(1000);
       let modulo = x * U256::new(3000);
-      let answer = U256::new(1) * FixedPoint128::Q128() / U256::new(3);
+      let answer = U256::new(1) * fixed_point_128::get_q128() / U256::new(3);
       assert_eq!(FullMath::mul_div(x, y, modulo), answer);
     }
   }
@@ -340,15 +334,15 @@ mod tests {
   fn test_mul_div_rounding_up() {
     // reverts if denominator is 0
     assert!(panic::catch_unwind(|| {
-      FullMath::mul_div_rounding_up(FixedPoint128::Q128(), U256::new(5), U256::new(0));
+      FullMath::mul_div_rounding_up(fixed_point_128::get_q128(), U256::new(5), U256::new(0));
     }).is_err());
     // reverts if denominator is 0 and numerator overflows
     assert!(panic::catch_unwind(|| {
-      FullMath::mul_div_rounding_up(FixedPoint128::Q128(), FixedPoint128::Q128(), U256::new(0));
+      FullMath::mul_div_rounding_up(fixed_point_128::get_q128(), fixed_point_128::get_q128(), U256::new(0));
     }).is_err());
     // reverts if output overflows uint256
     assert!(panic::catch_unwind(|| {
-      FullMath::mul_div_rounding_up(FixedPoint128::Q128(), FixedPoint128::Q128(), U256::new(1));
+      FullMath::mul_div_rounding_up(fixed_point_128::get_q128(), fixed_point_128::get_q128(), U256::new(1));
     }).is_err());
     // reverts on overflow with all max inputs
     assert!(panic::catch_unwind(|| {
@@ -372,26 +366,26 @@ mod tests {
     }
     // accurate without phantom overflow
     {
-      let x = FixedPoint128::Q128();
-      let y = FullMath::mul_div(U256::new(50), FixedPoint128::Q128(), U256::new(100));
-      let modulo = FullMath::mul_div(U256::new(150), FixedPoint128::Q128(), U256::new(100));
-      let answer = FixedPoint128::Q128() / U256::new(3) + U256::ONE;
+      let x = fixed_point_128::get_q128();
+      let y = FullMath::mul_div(U256::new(50), fixed_point_128::get_q128(), U256::new(100));
+      let modulo = FullMath::mul_div(U256::new(150), fixed_point_128::get_q128(), U256::new(100));
+      let answer = fixed_point_128::get_q128() / U256::new(3) + U256::ONE;
       assert_eq!(FullMath::mul_div_rounding_up(x, y, modulo), answer);
     }
     // accurate with phantom overflow
     {
-      let x = FixedPoint128::Q128();
+      let x = fixed_point_128::get_q128();
       let y = x * U256::new(35);
       let modulo = x * U256::new(8);
-      let answer = U256::new(4375) * FixedPoint128::Q128() / U256::new(1000);
+      let answer = U256::new(4375) * fixed_point_128::get_q128() / U256::new(1000);
       assert_eq!(FullMath::mul_div_rounding_up(x, y, modulo), answer);
     }
     // accurate with phantom overflow and repeating decimal
     {
-      let x = FixedPoint128::Q128();
+      let x = fixed_point_128::get_q128();
       let y = x * U256::new(1000);
       let modulo = x * U256::new(3000);
-      let answer = U256::new(1) * FixedPoint128::Q128() / U256::new(3) + U256::ONE;
+      let answer = U256::new(1) * fixed_point_128::get_q128() / U256::new(3) + U256::ONE;
       assert_eq!(FullMath::mul_div_rounding_up(x, y, modulo), answer);
     }
   }

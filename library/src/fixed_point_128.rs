@@ -1,19 +1,18 @@
 use ethnum::U256;
+use std::str::FromStr;
 
-pub struct FixedPoint128;
+pub const RESOLUTION: u8 = 128;
 
-impl FixedPoint128 {
-  pub const RESOLUTION: u8 = 128;
-  pub fn Q128() -> U256 {
-    U256::ONE << U256::new(128)
-  }
+pub fn get_q128() -> U256 {
+  U256::from_str("340282366920938463463374607431768211456").unwrap()
 }
+
 //
 // fn main() {
 //   // Accessing the constants
-//   let resolution = FixedPoint128::RESOLUTION;
-//   let q128 = FixedPoint128::Q128;
+//   let resolution = fixed_point_128::RESOLUTION;
+//   let q128 = fixed_point_128::get_q128();
 //
 //   println!("Resolution: {}", resolution);
-//   println!("Q128: {}", q128);
+//   println!("get_q128: {}", q128);
 // }

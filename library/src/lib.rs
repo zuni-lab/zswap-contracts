@@ -5,7 +5,7 @@ pub mod tick_math;
 pub mod bit_math;
 pub mod fixed_point_128;
 pub mod fixed_point_96;
-pub mod math;
+pub mod sqrt_price_math;
 pub mod full_math;
 mod num160;
 mod liquidity_math;
