@@ -1,10 +1,13 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::json_types::U128;
+use near_sdk::serde::{Deserialize, Serialize};
 
 // First slot will contain essential data
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
+#[serde(crate = "near_sdk::serde")]
 pub struct Slot0 {
     // Current sqrt(P)
-    pub sqrt_price_x96: u128,
+    pub sqrt_price_x96: U128,
     // Current tick
     pub tick: i32,
 }

@@ -1,7 +1,10 @@
+use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{ext_contract, json_types::U128, AccountId};
 
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct Slot0 {
-    pub sqrt_price_x96: u128,
+    pub sqrt_price_x96: U128,
     pub tick: i32,
 }
 

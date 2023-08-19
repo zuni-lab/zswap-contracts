@@ -1,3 +1,4 @@
+use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::AccountId;
 
@@ -18,10 +19,10 @@ pub struct MintParams {
     pub fee: u32,
     pub lower_tick: i32,
     pub upper_tick: i32,
-    pub amount_0_desired: u128,
-    pub amount_1_desired: u128,
-    pub amount_0_min: u128,
-    pub amount_1_min: u128,
+    pub amount_0_desired: U128,
+    pub amount_1_desired: U128,
+    pub amount_0_min: U128,
+    pub amount_1_min: U128,
 }
 
 pub struct SwapSingleParams {

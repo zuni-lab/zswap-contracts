@@ -3,7 +3,9 @@ use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
-use near_sdk::{env, near_bindgen, AccountId, BorshStorageKey, Promise, PromiseError};
+use near_sdk::{
+    env, near_bindgen, AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseError,
+};
 
 use crate::ft_account::Account;
 use crate::internal::PoolCallbackData;
@@ -16,13 +18,15 @@ mod ft_account;
 mod ft_receiver;
 mod internal;
 mod pool;
-mod utils;
+pub mod utils;
+mod views;
 
 // Define the contract structure
 #[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     factory: AccountId,
+    owner: AccountId,
     accounts: LookupMap<AccountId, Account>,
 }
 
@@ -45,9 +49,10 @@ pub(crate) enum StorageKey {
 #[near_bindgen]
 impl Contract {
     #[init]
-    pub fn new(factory: AccountId) -> Self {
+    pub fn new(factory: AccountId, owner: AccountId) -> Self {
         Self {
             factory,
+            owner,
             accounts: LookupMap::new(StorageKey::Accounts),
         }
     }
@@ -59,7 +64,7 @@ impl Contract {
         fee: u32,
         owner: AccountId,
         lower_tick: i32,
-        upperTick: i32,
+        upper_tick: i32,
     ) {
     }
 
@@ -126,12 +131,12 @@ impl Contract {
     #[private]
     pub fn calculate_liquidity(
         &mut self,
-        #[callback_result] slot0: Result<Slot0, PromiseError>,
+        #[callback_result] slot_0: Result<Slot0, PromiseError>,
         pool: AccountId,
         recipient: AccountId,
         params: MintParams,
     ) -> Promise {
-        let sqrt_price_x96 = slot0.unwrap().sqrt_price_x96;
+        let sqrt_price_x96 = slot_0.unwrap().sqrt_price_x96;
         let sqrt_price_lower_x96 = 0u128; // TODO: Add TickMath.getSqrtRatioAtTick
         let sqrt_price_upper_x96 = 0u128; // TODO: Add TickMath.getSqrtRatioAtTick
         let liquidity = 0u128; // TODO: Add TickMath.getLiquidityForAmounts
@@ -144,8 +149,8 @@ impl Contract {
         let data = near_sdk::serde_json::to_vec(&pool_callback_data).unwrap();
 
         let mut recipient_account = self.get_account(&recipient);
-        recipient_account.internal_approve_token(&pool, &params.token_0, params.amount_0_desired);
-        recipient_account.internal_approve_token(&pool, &params.token_1, params.amount_1_desired);
+        recipient_account.internal_approve_token(&pool, &params.token_0, params.amount_0_desired.0);
+        recipient_account.internal_approve_token(&pool, &params.token_1, params.amount_1_desired.0);
 
         ext_zswap_pool::ext(env::current_account_id())
             .mint(
@@ -157,15 +162,8 @@ impl Contract {
             )
             .then(
                 Self::ext(env::current_account_id())
-                    .manager_mint_callback(params.amount_0_min, params.amount_1_min),
+                    .manager_mint_callback(params.amount_0_min.0, params.amount_1_min.0),
             )
-    }
-
-    // =========== VIEW METHODS ===========
-    pub fn get_account(&self, account_id: &AccountId) -> Account {
-        self.accounts
-            .get(account_id)
-            .unwrap_or(Account::new(account_id))
     }
 }
 

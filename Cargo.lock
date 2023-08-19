@@ -3428,6 +3428,7 @@ dependencies = [
  "anyhow",
  "borsh",
  "maplit",
+ "near-sdk",
  "near-units",
  "pkg-config",
  "serde_json",
@@ -3444,6 +3445,7 @@ name = "zswap-manager"
 version = "1.0.0"
 dependencies = [
  "cargo-husky",
+ "hex 0.4.3",
  "near-contract-standards",
  "near-sdk",
  "uint",

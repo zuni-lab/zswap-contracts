@@ -1,9 +1,12 @@
+use error::ALREADY_INITIALIZED;
 use ethnum::U256;
 // Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
-use near_sdk::{env, near_bindgen, AccountId, BorshStorageKey, CryptoHash, Promise};
+use near_sdk::{
+    env, near_bindgen, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault, Promise,
+};
 
 use crate::account::Account;
 use crate::error::{INVALID_TICK_RANGE, ZERO_LIQUIDITY};
@@ -25,7 +28,7 @@ struct Position;
 
 // Define the contract structure
 #[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     factory: AccountId,
     token0: AccountId,
@@ -36,7 +39,7 @@ pub struct Contract {
     fee_growth_global0_x128: u128,
     fee_growth_global1_x128: u128,
 
-    slot0: Slot0,
+    slot_0: Slot0,
     liquidity: u128,
 
     //TODO: import Tick and Position from lib
@@ -77,8 +80,8 @@ impl Contract {
             fee,
             fee_growth_global0_x128: 0,
             fee_growth_global1_x128: 0,
-            slot0: Slot0 {
-                sqrt_price_x96: 0,
+            slot_0: Slot0 {
+                sqrt_price_x96: U128::from(0),
                 tick: 0,
             },
             liquidity: 0,
@@ -91,7 +94,15 @@ impl Contract {
 
     #[payable]
     pub fn initialize(&mut self, sqrt_price_x96: U128) {
-        todo!("initialize slot0");
+        if self.slot_0.sqrt_price_x96.0 != 0 {
+            env::panic_str(ALREADY_INITIALIZED);
+        }
+        let tick = 0; // TODO: calculate tick
+
+        self.slot_0 = Slot0 {
+            sqrt_price_x96,
+            tick,
+        };
     }
 
     /// Mint liquidity for the given account
@@ -174,6 +185,10 @@ impl Contract {
     #[payable]
     pub fn collect(token_in: AccountId) {
         todo!("collect");
+    }
+
+    pub fn get_slot_0(&self) -> Slot0 {
+        self.slot_0.clone()
     }
 }
 

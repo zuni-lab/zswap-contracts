@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{env, AccountId, Balance};
+use near_sdk::{env, log, AccountId, Balance};
 
 use crate::error::TOKENS_MUST_BE_DIFFERENT;
 use crate::ft_account::Account;
@@ -46,6 +46,14 @@ impl Contract {
         amount_out
     }
 
+    // ========= VIEW METHODS =========
+
+    pub fn get_account(&self, account_id: &AccountId) -> Account {
+        self.accounts
+            .get(account_id)
+            .unwrap_or(Account::new(account_id))
+    }
+
     pub fn get_pool(&self, token_0: &AccountId, token_1: &AccountId, fee: u32) -> AccountId {
         let ordered_token_0;
         let ordered_token_1;
@@ -71,10 +79,15 @@ impl Contract {
             .as_slice(),
         );
 
-        let subaccount: AccountId =
-            format!("{:x?}.{}", &hash_data[0..8], env::current_account_id())
-                .parse()
-                .unwrap();
+        log!(format!(
+            "{}.{}",
+            hex::encode(&hash_data[0..8]),
+            self.factory
+        ));
+
+        let subaccount: AccountId = format!("{}.{}", hex::encode(&hash_data[0..8]), self.factory)
+            .parse()
+            .unwrap();
 
         subaccount
     }
