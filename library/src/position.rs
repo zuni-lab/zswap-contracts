@@ -4,10 +4,9 @@
 use ethnum::{U256, I256, AsU256};
 use near_sdk::serde::__private::de::Content::U16;
 use crate::full_math::FullMathTrait;
-use crate::num160::To160;
 use super::num160::{U160, I160};
 use super::liquidity_math::*;
-use super::fixed_point_96::FixedPoint96;
+use super::fixed_point_96;
 use super::full_math::{MathOps, FullMath};
 use super::fixed_point_128::*;
 
@@ -22,23 +21,9 @@ pub struct PositionInfo {
   pub tokens_owed_0: u128,
   pub tokens_owed_1: u128,
 }
-//
-// pub trait PositionInfoMappingTrait {
-//   /// @notice Returns the Info struct of a position, given an owner and position boundaries
-//   /// @param self The mapping containing all user positions
-//   /// @param owner The address of the position owner
-//   /// @param tickLower The lower tick boundary of the position
-//   /// @param tickUpper The upper tick boundary of the position
-//   /// @return position The position info struct of the given owners' position
-//   fn get(
-//     &mut self,
-//     owner: ethers::types::Address,
-//     tick_lower: i24,
-//     tick_upper: i24,
-//   ) -> &mut PositionInfo;
-// }
 
 use std::ops::{Add, Sub, Mul, Div};
+use crate::{fixed_point_128, liquidity_math};
 
 // Define trait for updating position
 trait UpdatePosition {
@@ -72,7 +57,7 @@ impl UpdatePosition for PositionInfo {
       assert!(self.liquidity > 0, "NP"); // disallow pokes for 0 liquidity positions
       liquidity_next = self.liquidity;
     } else {
-      liquidity_next = LiquidityMath::add_delta(self.liquidity, liquidity_delta);
+      liquidity_next = liquidity_math::add_delta(self.liquidity, liquidity_delta);
     }
 
     // calculate accumulated fees
@@ -80,14 +65,14 @@ impl UpdatePosition for PositionInfo {
       FullMath::mul_div(
         fee_growth_inside_0_x128 - self.fee_growth_inside_0_last_x128,
         self.liquidity.as_u256(),
-        FixedPoint128::Q128(),
+        fixed_point_128::get_q128(),
       ).as_u128();
 
     let tokens_owed_1 =
       FullMath::mul_div(
         fee_growth_inside_1_x128 - self.fee_growth_inside_1_last_x128,
         self.liquidity.as_u256(),
-        FixedPoint128::Q128(),
+        fixed_point_128::get_q128(),
       ).as_u128();
 
     // update the position

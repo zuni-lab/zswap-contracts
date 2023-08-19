@@ -1,7 +1,7 @@
 use std::str::FromStr;
 use ethnum::{AsI256, AsU256, I256, U256};
-use crate::num160::{To160, U160};
-use crate::num24::{I24, To24};
+use crate::num160::{AsU160, U160};
+use crate::num24::{AsI24, I24};
 // use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 // use near_sdk::{env, log};
 // use near_sdk::ext_contract;
@@ -18,18 +18,26 @@ impl TickConstants {
       .unwrap_or_else(|_| U160::ZERO)
   }
 }
+//
+// fn printBits256(x: I256) {
+//   print!("{} => ", x);
+//   for i in 0..=255{
+//     print!("{}", (x >> (255 - i)) & I256::ONE);
+//   }
+//   println!();
+// }
+// fn printBits32(x: i32) {
+//   print!("{} => ", x);
+//   for i in 0..=31{
+//     print!("{}", (x >> (31 - i)) & 1);
+//   }
+//   println!();
+// }
 
 /// @title Math library for computing sqrt prices from ticks and vice versa
 /// @notice Computes sqrt price for ticks of size 1.0001, i.e. sqrt(1.0001^tick) as fixed point Q64.96 numbers. Supports
 /// prices between 2**-128 and 2**128
-pub trait TickMathTrait {
-  fn get_sqrt_ratio_at_tick(tick: I24) -> U160;
-  fn get_tick_at_sqrt_ratio(sqrt_price_x96: U160) -> I24;
-}
 
-pub struct TickMath {}
-
-impl TickMathTrait for TickMath {
   /// @notice Calculates sqrt(1.0001^tick) * 2^96
   /// @dev Throws if |tick| > max tick
   /// @param tick The input tick for the above formula
@@ -109,10 +117,10 @@ impl TickMathTrait for TickMath {
       ratio = U256::MAX / ratio;
     }
 
-    // this divides by 1<<32 rounding up to go from a Q128.128 to a Q128.96.
+    // this divides by 1<<32 rounding up to go from a get_q128.128 to a get_q128.96.
     // we then downcast because we know the result always fits within 160 bits due to our tick input constraint
     // we round up in the division so get_tick_at_sqrt_ratio of the output price is always consistent
-    let shifted_ratio = (((ratio >> 32) + U256::new(if (ratio % (1u128 << 32)) == U256::ZERO { 0 } else { 1 })) as U256).to160bit();
+    let shifted_ratio = (((ratio >> 32) + U256::new(if (ratio % (1u128 << 32)) == U256::ZERO { 0 } else { 1 })) as U256).as_u160();
     shifted_ratio
   }
 
@@ -124,7 +132,6 @@ impl TickMathTrait for TickMath {
   fn get_tick_at_sqrt_ratio(sqrt_price_x96: U160) -> I24 {
     /// second inequality must be < because the price can never reach the price at the max tick
 
-    // println!("{} {} {}",sqrt_price_x96,  TickConstants::MIN_SQRT_RATIO, TickConstants::max_sqrt_ratio());
     assert!(
       sqrt_price_x96 >= TickConstants::MIN_SQRT_RATIO && sqrt_price_x96 < TickConstants::max_sqrt_ratio(),
       "Sqrt ratio out of range"
@@ -133,11 +140,6 @@ impl TickMathTrait for TickMath {
     let ratio: U256 = sqrt_price_x96 << 32;
     let mut r = ratio;
     let mut msb: U256 = U256::new(0);
-
-    // assembly {
-    //   let f := shl(7, gt(r, 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF))
-    //   msb := or(msb, f)
-    //   r := shr(f, r)
 
     let f = U256::new(u128::from(r > 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)) << 7;
     msb |= f;
@@ -186,72 +188,71 @@ impl TickMathTrait for TickMath {
     }
 
     let log_sqrt10001: I256 = log_2 * 255738958999603826347141; // 128.128 number
-    let tick_low = (((log_sqrt10001 - 3402992956809132418596140100660247210i128) >> 128) as I256).to24bit().as_i32();
-    let tick_hi = (((log_sqrt10001 + I256::from_str("291339464771989622907027621153398088495").unwrap()) >> 128) as I256).to24bit().as_i32();
+    let tick_low = (((log_sqrt10001 - 3402992956809132418596140100660247210i128) >> 128) as I256).as_i24();
+    let tick_hi = (((log_sqrt10001 + I256::from_str("291339464771989622907027621153398088495").unwrap()) >> 128) as I256).as_i24();
+
+    // let mut l = -887272;
+    // let mut r = 887272;
+    // let mut res = -1;
+    // while l <= r {
+    //   let mid = (l + r) >> 1;
+    //   let tmp = get_sqrt_ratio_at_tick(mid);
+    //   if (tmp <= sqrt_price_x96) {
+    //     res = mid;
+    //     l = mid + 1;
+    //   } else { r = mid - 1 };
+    // }
 
     if tick_low == tick_hi {
       tick_low
-    } else if TickMath::get_sqrt_ratio_at_tick(tick_hi) <= sqrt_price_x96 {
+    } else if get_sqrt_ratio_at_tick(tick_hi) <= sqrt_price_x96 {
       tick_hi
     } else {
       tick_low
     }
   }
-}
 
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-  use std::ops::Mul;
   use super::*;
-  // use near_sdk::MockedBlockchain;
-  use near_sdk::test_utils::VMContextBuilder;
-  use near_sdk::testing_env;
-  use super::TickMath;
-  use super::TickMathTrait;
-  use crate::num24::{I24, To24};
   use std::panic;
   use crate::full_math::MathOps;
 
   #[test]
   fn test_get_sqrt_ratio_at_tick() {
-    // // let context = VMContextBuilder::new()
-    // //   .build();
-    // // testing_env!(context);
-    //
-    //throws for too low
     assert!(panic::catch_unwind(|| {
-      TickMath::get_sqrt_ratio_at_tick(TickConstants::MIN_TICK - 1);
+      get_sqrt_ratio_at_tick(TickConstants::MIN_TICK - 1);
     }).is_err());
     //throws for too high
     assert!(panic::catch_unwind(|| {
-      TickMath::get_sqrt_ratio_at_tick(TickConstants::MAX_TICK + 1);
+      get_sqrt_ratio_at_tick(TickConstants::MAX_TICK + 1);
     }).is_err());
 
-    assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MIN_TICK), U160::new(4295128739));
-    assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MIN_TICK + 1), U160::new(4295343490));
-    assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MAX_TICK - 1), U160::from_str("1461373636630004318706518188784493106690254656249").unwrap());
+    assert_eq!(get_sqrt_ratio_at_tick(TickConstants::MIN_TICK), U160::new(4295128739));
+    assert_eq!(get_sqrt_ratio_at_tick(TickConstants::MIN_TICK + 1), U160::new(4295343490));
+    assert_eq!(get_sqrt_ratio_at_tick(TickConstants::MAX_TICK - 1), U160::from_str("1461373636630004318706518188784493106690254656249").unwrap());
     // // min tick ratio is less than js implementation // TODO: build Js integration test
     // // max tick ratio is greater than js implementation
-    assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MAX_TICK), U160::from_str("1461446703485210103287273052203988822378723970342").unwrap());
-    assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MIN_TICK), TickConstants::MIN_SQRT_RATIO);
-    assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MAX_TICK), TickConstants::max_sqrt_ratio());
+    assert_eq!(get_sqrt_ratio_at_tick(TickConstants::MAX_TICK), U160::from_str("1461446703485210103287273052203988822378723970342").unwrap());
+    assert_eq!(get_sqrt_ratio_at_tick(TickConstants::MIN_TICK), TickConstants::MIN_SQRT_RATIO);
+    assert_eq!(get_sqrt_ratio_at_tick(TickConstants::MAX_TICK), TickConstants::max_sqrt_ratio());
   }
 
   #[test]
   fn test_get_tick_at_sqrt_ratio() {
     // //throws for too low
     assert!(panic::catch_unwind(|| {
-      TickMath::get_tick_at_sqrt_ratio(TickConstants::MIN_SQRT_RATIO - U160::ONE);
+      get_tick_at_sqrt_ratio(TickConstants::MIN_SQRT_RATIO - U160::ONE);
     }).is_err());
     //throws for too high
     assert!(panic::catch_unwind(|| {
-      TickMath::get_tick_at_sqrt_ratio(TickConstants::max_sqrt_ratio());
+      get_tick_at_sqrt_ratio(TickConstants::max_sqrt_ratio());
     }).is_err());
     //
-    // assert_eq!(TickMath::get_tick_at_sqrt_ratio(TickConstants::MIN_SQRT_RATIO), TickConstants::MIN_TICK);
-    // assert_eq!(TickMath::get_tick_at_sqrt_ratio(U160::new(4295343490)), TickConstants::MIN_TICK + 1);
-    assert_eq!(TickMath::get_tick_at_sqrt_ratio(U160::from_str("1461373636630004318706518188784493106690254656249").unwrap()), TickConstants::MAX_TICK - 1);
-    assert_eq!(TickMath::get_tick_at_sqrt_ratio(TickConstants::max_sqrt_ratio().sub(U160::ONE)), TickConstants::MAX_TICK - 1);
+    assert_eq!(get_tick_at_sqrt_ratio(TickConstants::MIN_SQRT_RATIO), TickConstants::MIN_TICK);
+    assert_eq!(get_tick_at_sqrt_ratio(U160::new(4295343490)), TickConstants::MIN_TICK + 1);
+    assert_eq!(get_tick_at_sqrt_ratio(U160::from_str("1461373636630004318706518188784493106690254656249").unwrap()), TickConstants::MAX_TICK - 1);
+    assert_eq!(get_tick_at_sqrt_ratio(TickConstants::max_sqrt_ratio().sub(U160::ONE)), TickConstants::MAX_TICK - 1);
   }
 }
