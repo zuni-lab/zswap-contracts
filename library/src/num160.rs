@@ -45,13 +45,13 @@ pub trait To160 {
 
 impl To160 for U160 {
   fn to160bit(self) -> U160 {
-    (self & ((Self::ONE << 160) - Self::ONE))
+    self & ((Self::ONE << 160) - Self::ONE)
   }
 }
 
 impl To160 for I160 {
   fn to160bit(self) -> I160 {
-    (self & ((Self::ONE << 160) - Self::ONE))
+    self & ((Self::ONE << 160) - Self::ONE)
   }
 }
 //

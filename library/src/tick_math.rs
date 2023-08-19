@@ -6,7 +6,7 @@ use crate::num24::{I24, To24};
 // use near_sdk::{env, log};
 // use near_sdk::ext_contract;
 
-struct TickConstants;
+pub struct TickConstants;
 
 impl TickConstants {
   pub const MIN_TICK: I24 = -887272;
@@ -38,7 +38,8 @@ impl TickMathTrait for TickMath {
   fn get_sqrt_ratio_at_tick(tick: I24) -> U160 {
     /// second inequality must be < because the price can never reach the price at the max tick
     let abs_tick = if tick < 0 { (I256::ZERO - tick.as_i256()).as_u256() } else { tick.as_i256().as_u256() };
-    assert!(abs_tick <= TickConstants::max_sqrt_ratio().as_u256(), "Tick out of range");
+    // println!("{} {} {} {}", tick, abs_tick, TickConstants::max_sqrt_ratio(), TickConstants::MIN_TICK - 1);
+    assert!(abs_tick <= TickConstants::MAX_TICK.as_u256(), "Tick out of range");
 
     let mut ratio = if (abs_tick & 1) != U256::ZERO {
       U256::from_str_hex("0xfffcb933bd6fad37aa2d162d1a594001").unwrap()
@@ -123,6 +124,7 @@ impl TickMathTrait for TickMath {
   fn get_tick_at_sqrt_ratio(sqrt_price_x96: U160) -> I24 {
     /// second inequality must be < because the price can never reach the price at the max tick
 
+    // println!("{} {} {}",sqrt_price_x96,  TickConstants::MIN_SQRT_RATIO, TickConstants::max_sqrt_ratio());
     assert!(
       sqrt_price_x96 >= TickConstants::MIN_SQRT_RATIO && sqrt_price_x96 < TickConstants::max_sqrt_ratio(),
       "Sqrt ratio out of range"
@@ -217,39 +219,39 @@ mod tests {
     // //   .build();
     // // testing_env!(context);
     //
-    // //throws for too low
-    // assert!(panic::catch_unwind(|| {
-    //   TickMath::get_sqrt_ratio_at_tick(TickConstants::MIN_TICK - 1);
-    // }).is_err());
-    // // //throws for too high
-    // // assert!(panic::catch_unwind(|| {
-    // //   TickMath::get_sqrt_ratio_at_tick(TickConstants::MAX_TICK + 1);
-    // // }).is_err());
-    // //
-    // // assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MIN_TICK), U160::new(4295128739));
-    // // assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MIN_TICK + 1), U160::new(4295343490));
-    // // assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MAX_TICK - 1), U160::from_str("1461373636630004318706518188784493106690254656249").unwrap());
-    // // // min tick ratio is less than js implementation
-    // // // max tick ratio is greater than js implementation
-    // // assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MAX_TICK), U160::from_str("1461446703485210103287273052203988822378723970342").unwrap());
-    // assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MIN_TICK), TickConstants::MIN_SQRT_RATIO);
-    // assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MAX_TICK), TickConstants::max_sqrt_ratio());
+    //throws for too low
+    assert!(panic::catch_unwind(|| {
+      TickMath::get_sqrt_ratio_at_tick(TickConstants::MIN_TICK - 1);
+    }).is_err());
+    //throws for too high
+    assert!(panic::catch_unwind(|| {
+      TickMath::get_sqrt_ratio_at_tick(TickConstants::MAX_TICK + 1);
+    }).is_err());
+
+    assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MIN_TICK), U160::new(4295128739));
+    assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MIN_TICK + 1), U160::new(4295343490));
+    assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MAX_TICK - 1), U160::from_str("1461373636630004318706518188784493106690254656249").unwrap());
+    // // min tick ratio is less than js implementation // TODO: build Js integration test
+    // // max tick ratio is greater than js implementation
+    assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MAX_TICK), U160::from_str("1461446703485210103287273052203988822378723970342").unwrap());
+    assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MIN_TICK), TickConstants::MIN_SQRT_RATIO);
+    assert_eq!(TickMath::get_sqrt_ratio_at_tick(TickConstants::MAX_TICK), TickConstants::max_sqrt_ratio());
   }
 
   #[test]
   fn test_get_tick_at_sqrt_ratio() {
     // //throws for too low
-    // assert!(panic::catch_unwind(|| {
-    //   TickMath::get_tick_at_sqrt_ratio(TickConstants::MIN_SQRT_RATIO - U160::ONE);
-    // }).is_err());
-    // //throws for too high
-    // assert!(panic::catch_unwind(|| {
-    //   TickMath::get_tick_at_sqrt_ratio(TickConstants::max_sqrt_ratio());
-    // }).is_err());
+    assert!(panic::catch_unwind(|| {
+      TickMath::get_tick_at_sqrt_ratio(TickConstants::MIN_SQRT_RATIO - U160::ONE);
+    }).is_err());
+    //throws for too high
+    assert!(panic::catch_unwind(|| {
+      TickMath::get_tick_at_sqrt_ratio(TickConstants::max_sqrt_ratio());
+    }).is_err());
     //
     // assert_eq!(TickMath::get_tick_at_sqrt_ratio(TickConstants::MIN_SQRT_RATIO), TickConstants::MIN_TICK);
     // assert_eq!(TickMath::get_tick_at_sqrt_ratio(U160::new(4295343490)), TickConstants::MIN_TICK + 1);
-    // assert_eq!(TickMath::get_tick_at_sqrt_ratio(U160::from_str("1461373636630004318706518188784493106690254656249").unwrap()), TickConstants::MAX_TICK - 1);
-    // assert_eq!(TickMath::get_tick_at_sqrt_ratio(TickConstants::max_sqrt_ratio().sub(U160::ONE)), TickConstants::MAX_TICK - 1);
+    assert_eq!(TickMath::get_tick_at_sqrt_ratio(U160::from_str("1461373636630004318706518188784493106690254656249").unwrap()), TickConstants::MAX_TICK - 1);
+    assert_eq!(TickMath::get_tick_at_sqrt_ratio(TickConstants::max_sqrt_ratio().sub(U160::ONE)), TickConstants::MAX_TICK - 1);
   }
 }

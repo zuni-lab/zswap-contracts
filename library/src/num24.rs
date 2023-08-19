@@ -1,5 +1,5 @@
 use std::ops::Shl;
-use ethnum::{I256};
+use ethnum::{I256, U256};
 
 pub type U24 = u32;
 pub type I24 = i32;
@@ -45,18 +45,24 @@ pub trait To24 {
 
 impl To24 for U24 {
   fn to24bit(self) -> U24 {
-    (self & ((1 << 24) - 1))
+    self & ((1 << 24) - 1)
   }
 }
 
 impl To24 for I24 {
   fn to24bit(self) -> I24 {
-    (self & ((1 << 24) - 1))
+    self & ((1 << 24) - 1)
   }
 }
 
 impl To24 for I256 {
   fn to24bit(self) -> I256 {
+    self & ((1 << 24) - 1)
+  }
+}
+
+impl To24 for U256 {
+  fn to24bit(self) -> U256 {
     self & ((1 << 24) - 1)
   }
 }
