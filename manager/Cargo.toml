@@ -14,7 +14,7 @@ hex = "0.4.3"
 uint = { version = "0.9.3", default-features = false }
 zswap-math-library = { path = "../library" }
 
-[dev-dependencies.cargo-husky]
-version = "1"
-default-features = false
-features = ["user-hooks"]
+# [dev-dependencies.cargo-husky]
+# version = "1"
+# default-features = false
+# features = ["user-hooks"]

@@ -13,7 +13,7 @@ uint = { version = "0.9.3", default-features = false }
 ethnum = "1.3.2"
 zswap-math-library = { path = "../library" }
 
-[dev-dependencies.cargo-husky]
-version = "1"
-default-features = false
-features = ["user-hooks"]
+# [dev-dependencies.cargo-husky]
+# version = "1"
+# default-features = false
+# features = ["user-hooks"]
