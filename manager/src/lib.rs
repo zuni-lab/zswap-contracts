@@ -131,12 +131,12 @@ impl Contract {
     #[private]
     pub fn calculate_liquidity(
         &mut self,
-        #[callback_result] slot_0: Result<Slot0, PromiseError>,
+        #[callback_result] slot_0_res: Result<Slot0, PromiseError>,
         pool: AccountId,
         recipient: AccountId,
         params: MintParams,
     ) -> Promise {
-        let sqrt_price_x96 = slot_0.unwrap().sqrt_price_x96;
+        let sqrt_price_x96 = slot_0_res.unwrap().sqrt_price_x96;
         let sqrt_price_lower_x96 = 0u128; // TODO: Add TickMath.getSqrtRatioAtTick
         let sqrt_price_upper_x96 = 0u128; // TODO: Add TickMath.getSqrtRatioAtTick
         let liquidity = 0u128; // TODO: Add TickMath.getLiquidityForAmounts

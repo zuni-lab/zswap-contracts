@@ -79,12 +79,6 @@ impl Contract {
             .as_slice(),
         );
 
-        log!(format!(
-            "{}.{}",
-            hex::encode(&hash_data[0..8]),
-            self.factory
-        ));
-
         let subaccount: AccountId = format!("{}.{}", hex::encode(&hash_data[0..8]), self.factory)
             .parse()
             .unwrap();

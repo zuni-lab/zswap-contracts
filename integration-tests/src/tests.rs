@@ -107,7 +107,6 @@ async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContext> {
         .view()
         .await?
         .json::<Slot0>()?;
-    println!("slot_0: {:?}", slot_0);
 
     // add storage deposit for manager & pool contract
     deployer
@@ -220,13 +219,16 @@ async fn main() -> anyhow::Result<()> {
         amount_0_min: U128::from(50),
         amount_1_min: U128::from(100_000),
     };
-    liqudity_provider
+    let res = liqudity_provider
         .call(context.manager_contract.id(), "mint")
         .args_json(json!({ "params": mint_params }))
         .max_gas()
         .transact()
-        .await?
-        .into_result()?;
+        .await?;
+    res.logs().iter().for_each(|log| {
+        println!("log: {:?}", log);
+    });
+    res.into_result()?;
 
     Ok(())
 }
