@@ -1,19 +1,12 @@
 use std::cmp::Ordering;
 
-use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{env, log, AccountId, Balance};
+use near_sdk::{env, AccountId, Balance, Promise};
+use zswap_pool::core_trait::ext_zswap_pool_core;
 
 use crate::error::TOKENS_MUST_BE_DIFFERENT;
 use crate::ft_account::Account;
+use crate::utils::SwapCallbackData;
 use crate::Contract;
-
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct PoolCallbackData {
-    pub token_0: AccountId,
-    pub token_1: AccountId,
-    pub payer: AccountId,
-}
 
 impl Contract {
     pub fn internal_deposit(
@@ -40,10 +33,21 @@ impl Contract {
         amount_in: u128,
         recipient: AccountId,
         sqrt_price_limit_x96: u128,
-        data: PoolCallbackData,
-    ) -> u128 {
-        let amount_out = 0;
-        amount_out
+        data: SwapCallbackData,
+    ) -> Promise {
+        let zero_for_one = data.token_0 < data.token_1;
+        let pool = self.get_pool(&data.token_0, &data.token_1, data.fee);
+        let encoded_data = near_sdk::serde_json::to_vec(&data).unwrap();
+
+        ext_zswap_pool_core::ext(pool)
+            .swap(
+                recipient,
+                zero_for_one,
+                amount_in.into(),
+                sqrt_price_limit_x96.into(),
+                encoded_data,
+            )
+            .then(Self::ext(env::current_account_id()).calculate_amount_out(zero_for_one))
     }
 
     // ========= VIEW METHODS =========

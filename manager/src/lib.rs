@@ -2,17 +2,16 @@ use near_contract_standards::fungible_token::core::ext_ft_core;
 // Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
-use near_sdk::json_types::U128;
+use near_sdk::json_types::{I128, U128};
 use near_sdk::{
     env, log, near_bindgen, AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseError,
 };
+use utils::{SwapCallbackData, SwapSingleParams};
 use zswap_pool::core_trait::ext_zswap_pool_core;
 use zswap_pool::utils::Slot0;
 
 use crate::ft_account::Account;
-use crate::internal::PoolCallbackData;
-// use crate::pool::{ext_zswap_pool, Slot0};
-use crate::utils::MintParams;
+use crate::utils::*;
 
 mod callback;
 mod error;
@@ -79,18 +78,20 @@ impl Contract {
     }
 
     #[payable]
-    pub fn swap_single(
-        &mut self,
-        token_in: AccountId,
-        token_out: AccountId,
-        fee: u32,
-        lower_tick: i32,
-        upper_tick: i32,
-        amount_0_desired: u128,
-        amount_1_desired: u128,
-        amount_0_min: u128,
-        amount_1_min: u128,
-    ) {
+    pub fn swap_single(&mut self, params: SwapSingleParams) -> Promise {
+        let data = SwapCallbackData {
+            token_0: params.token_in,
+            token_1: params.token_out,
+            fee: params.fee,
+            payer: env::predecessor_account_id(),
+        };
+
+        self.internal_swap(
+            params.amount_in,
+            env::predecessor_account_id(),
+            params.sqrt_price_limit_x96,
+            data,
+        )
     }
 
     #[payable]
@@ -166,6 +167,22 @@ impl Contract {
                 Self::ext(env::current_account_id())
                     .manager_mint_callback(params.amount_0_min.0, params.amount_1_min.0),
             )
+    }
+
+    #[private]
+    pub fn calculate_amount_out(
+        &mut self,
+        #[callback_result] amounts_res: Result<[I128; 2], PromiseError>,
+        zero_for_one: bool,
+    ) -> U128 {
+        let amounts = amounts_res.unwrap();
+        if zero_for_one {
+            let amount_1 = (-amounts[1].0) as u128;
+            return U128::from(amount_1);
+        } else {
+            let amount_0 = (-amounts[0].0) as u128;
+            return U128::from(amount_0);
+        }
     }
 }
 

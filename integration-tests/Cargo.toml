@@ -23,6 +23,6 @@ workspaces = "0.6.0"
 pkg-config = "0.3.1"
 
 
-[[example]]
-name = "integration-tests"
-path = "src/tests.rs"
+# [[example]]
+# name = "integration-tests"
+# path = "src/tests.rs"

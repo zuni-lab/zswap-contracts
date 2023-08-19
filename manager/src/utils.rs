@@ -25,12 +25,14 @@ pub struct MintParams {
     pub amount_1_min: U128,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct SwapSingleParams {
-    token_in: AccountId,
-    token_out: AccountId,
-    fee: u32,
-    amount_in: u128,
-    sqrt_price_limit_x96: u128,
+    pub token_in: AccountId,
+    pub token_out: AccountId,
+    pub fee: u32,
+    pub amount_in: u128,
+    pub sqrt_price_limit_x96: u128,
 }
 
 pub struct SwapParams {
@@ -41,8 +43,19 @@ pub struct SwapParams {
     amount_out_min: u128,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct SwapCallbackData {
-    token_0: AccountId,
-    token_1: AccountId,
-    payer: AccountId,
+    pub token_0: AccountId,
+    pub token_1: AccountId,
+    pub fee: u32,
+    pub payer: AccountId,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct PoolCallbackData {
+    pub token_0: AccountId,
+    pub token_1: AccountId,
+    pub payer: AccountId,
 }

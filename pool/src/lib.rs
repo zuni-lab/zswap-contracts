@@ -146,18 +146,6 @@ impl CoreZswapPool for Contract {
 
         let zswap_manager = env::predecessor_account_id();
 
-        // let amount0_before_promise = if amount_0 > 0 {
-        //     self.get_balance0_promise()
-        // } else {
-        //     Promise::new(zswap_manager.clone())
-        // };
-
-        // let amount1_before_promise = if amount_1 > 0 {
-        //     self.get_balance1_promise()
-        // } else {
-        //     Promise::new(zswap_manager.clone())
-        // };
-
         self.get_balance0_promise() // get balance of token_0 before transfer
             .and(self.get_balance1_promise()) // get balance of token_1 before transfer
             .and(
@@ -183,11 +171,11 @@ impl CoreZswapPool for Contract {
     #[payable]
     fn swap(
         &mut self,
-        token_in: AccountId,
-        token_out: AccountId,
-        amount_in: u128,
-        amount_out_min: u128,
         recipient: AccountId,
+        zero_for_one: bool,
+        amount_specified: U128,
+        sqrt_price_limit_x96: U128,
+        data: Vec<u8>,
     ) {
         todo!("swap");
     }
