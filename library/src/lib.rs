@@ -11,6 +11,10 @@ mod num160;
 mod liquidity_math;
 mod num24;
 mod swap_math;
+mod tick;
+mod position;
+mod tick_bitmap;
+mod num56;
 
 pub fn add(left: usize, right: usize) -> usize {
   left + right
