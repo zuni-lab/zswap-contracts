@@ -15,7 +15,7 @@ use crate::error::{INVALID_TICK_RANGE, ZERO_LIQUIDITY};
 use crate::manager::ext_ft_zswap_manager;
 use crate::utils::*;
 
-use zswap_math_library::TickMath;
+use zswap_math_library::tick_math;
 
 mod account;
 mod callback;
@@ -129,8 +129,8 @@ impl CoreZswapPool for Contract {
         data: Vec<u8>,
     ) -> Promise {
         let check1 = lower_tick >= upper_tick;
-        let check2 = lower_tick < TickMath::TickConstants::MIN_TICK;
-        let check3 = upper_tick > TickMath::TickConstants::MAX_TICK;
+        let check2 = lower_tick < tick_math::TickConstants::MIN_TICK;
+        let check3 = upper_tick > tick_math::TickConstants::MAX_TICK;
         if check1 || check2 || check3 {
             env::panic_str(INVALID_TICK_RANGE);
         }
