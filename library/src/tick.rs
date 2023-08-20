@@ -1,12 +1,16 @@
+use ethnum::AsI256;
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+
 use crate::full_math::MathOps;
 use crate::liquidity_math;
 use crate::num160::U160;
-use crate::num24::{ AsI24, AsU24, I24 };
-use crate::num56::{ I56, U56 };
+use crate::num24::{AsI24, AsU24, I24};
+use crate::num256::U256;
+use crate::num56::{I56, U56};
 use crate::tick_math::TickConstants;
-use ethnum::{ AsI256, AsU256, U256 };
 
 // info stored for each initialized individual tick
+#[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, Default)]
 pub struct TickInfo {
     // the total position liquidity that references this tick
     pub liquidity_gross: u128,
@@ -38,15 +42,13 @@ pub struct TickInfo {
 ///     e.g., a tickSpacing of 3 requires ticks to be initialized every 3rd tick i.e., ..., -6, -3, 0, 3, 6, ...
 /// @return The max liquidity per tick
 pub fn tick_spacing_to_max_liquidity_per_tick(tick_spacing: I24) -> u128 {
-    let min_tick = (
-        (TickConstants::MIN_TICK.as_i256() / tick_spacing.as_i256()) *
-        tick_spacing.as_i256()
-    ).as_i24();
-    let max_tick = (
-        (TickConstants::MAX_TICK.as_i256() / tick_spacing.as_i256()) *
-        tick_spacing.as_i256()
-    ).as_i24();
-    let num_ticks = ((max_tick - min_tick) / tick_spacing + 1).as_u256().as_u24();
+    let min_tick = ((TickConstants::MIN_TICK.as_i256() / tick_spacing.as_i256())
+        * tick_spacing.as_i256())
+    .as_i24();
+    let max_tick = ((TickConstants::MAX_TICK.as_i256() / tick_spacing.as_i256())
+        * tick_spacing.as_i256())
+    .as_i24();
+    let num_ticks = U256::from((max_tick - min_tick) / tick_spacing + 1).as_u24();
     u128::MAX / (num_ticks as u128)
 }
 
@@ -67,7 +69,7 @@ pub fn get_fee_growth_inside(
     upper: &TickInfo,
     tick_current: I24,
     fee_growth_global0_x128: U256,
-    fee_growth_global1_x128: U256
+    fee_growth_global1_x128: U256,
 ) -> (U256, U256) {
     // calculate fee growth below
     let fee_growth_below0_x128: U256;
@@ -76,14 +78,10 @@ pub fn get_fee_growth_inside(
         fee_growth_below0_x128 = lower.fee_growth_outside0_x128;
         fee_growth_below1_x128 = lower.fee_growth_outside1_x128;
     } else {
-        fee_growth_below0_x128 = MathOps::sub(
-            fee_growth_global0_x128,
-            lower.fee_growth_outside0_x128
-        );
-        fee_growth_below1_x128 = MathOps::sub(
-            fee_growth_global1_x128,
-            lower.fee_growth_outside1_x128
-        );
+        fee_growth_below0_x128 =
+            MathOps::sub(fee_growth_global0_x128, lower.fee_growth_outside0_x128);
+        fee_growth_below1_x128 =
+            MathOps::sub(fee_growth_global1_x128, lower.fee_growth_outside1_x128);
     }
 
     // Calculate fee growth above
@@ -93,23 +91,19 @@ pub fn get_fee_growth_inside(
         fee_growth_above0_x128 = upper.fee_growth_outside0_x128;
         fee_growth_above1_x128 = upper.fee_growth_outside1_x128;
     } else {
-        fee_growth_above0_x128 = MathOps::sub(
-            fee_growth_global0_x128,
-            upper.fee_growth_outside0_x128
-        );
-        fee_growth_above1_x128 = MathOps::sub(
-            fee_growth_global1_x128,
-            upper.fee_growth_outside1_x128
-        );
+        fee_growth_above0_x128 =
+            MathOps::sub(fee_growth_global0_x128, upper.fee_growth_outside0_x128);
+        fee_growth_above1_x128 =
+            MathOps::sub(fee_growth_global1_x128, upper.fee_growth_outside1_x128);
     }
 
     let fee_growth_inside0_x128 = MathOps::sub(
         MathOps::sub(fee_growth_global0_x128, fee_growth_below0_x128),
-        fee_growth_above0_x128
+        fee_growth_above0_x128,
     );
     let fee_growth_inside1_x128 = MathOps::sub(
         MathOps::sub(fee_growth_global1_x128, fee_growth_below1_x128),
-        fee_growth_above1_x128
+        fee_growth_above1_x128,
     );
 
     (fee_growth_inside0_x128, fee_growth_inside1_x128)
@@ -161,7 +155,10 @@ pub fn update(tick_update: TickUpdate, liquidity_update: LiquidityUpdate) -> boo
         upper,
     } = tick_update;
 
-    let LiquidityUpdate { liquidity_delta, max_liquidity } = liquidity_update;
+    let LiquidityUpdate {
+        liquidity_delta,
+        max_liquidity,
+    } = liquidity_update;
 
     let liquidity_gross_before = info.liquidity_gross;
     let liquidity_gross_after = liquidity_math::add_delta(liquidity_gross_before, liquidity_delta);
@@ -186,9 +183,17 @@ pub fn update(tick_update: TickUpdate, liquidity_update: LiquidityUpdate) -> boo
 
     // when the lower (upper) tick is crossed left to right (right to left), liquidity must be added (removed)
     info.liquidity_net = if upper {
-        info.liquidity_net.as_i256().checked_sub(liquidity_delta.as_i256()).unwrap().as_i128()
+        info.liquidity_net
+            .as_i256()
+            .checked_sub(liquidity_delta.as_i256())
+            .unwrap()
+            .as_i128()
     } else {
-        info.liquidity_net.as_i256().checked_add(liquidity_delta.as_i256()).unwrap().as_i128()
+        info.liquidity_net
+            .as_i256()
+            .checked_add(liquidity_delta.as_i256())
+            .unwrap()
+            .as_i128()
     };
 
     flipped
@@ -210,10 +215,12 @@ pub fn cross(
     fee_growth_global1_x128: U56,
     seconds_per_liquidity_cumulative_x128: U160,
     tick_cumulative: I56,
-    time: u32
+    time: u32,
 ) -> i128 {
-    info.fee_growth_outside0_x128 = fee_growth_global0_x128 - info.fee_growth_outside0_x128;
-    info.fee_growth_outside1_x128 = fee_growth_global1_x128 - info.fee_growth_outside1_x128;
+    info.fee_growth_outside0_x128 =
+        U256::from(fee_growth_global0_x128) - info.fee_growth_outside0_x128;
+    info.fee_growth_outside1_x128 =
+        U256::from(fee_growth_global1_x128) - info.fee_growth_outside1_x128;
     info.seconds_per_liquidity_outside_x128 =
         seconds_per_liquidity_cumulative_x128 - info.seconds_per_liquidity_outside_x128;
     info.tick_cumulative_outside = tick_cumulative - info.tick_cumulative_outside;

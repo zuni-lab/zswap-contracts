@@ -5,6 +5,7 @@ pub mod full_math;
 pub mod liquidity_math;
 pub mod num160;
 pub mod num24;
+pub mod num256;
 pub mod num56;
 pub mod position;
 pub mod sqrt_price_math;

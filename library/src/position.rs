@@ -1,9 +1,13 @@
-use ethnum::{ AsU256, U256 };
+use crate::num256::U256;
+use crate::{fixed_point_128, liquidity_math};
+
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 
 use super::full_math::FullMath;
 use crate::full_math::FullMathTrait;
 
 // info stored for each user's position
+#[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, Default)]
 pub struct PositionInfo {
     // the amount of liquidity owned by this position
     pub liquidity: u128,
@@ -14,8 +18,6 @@ pub struct PositionInfo {
     pub tokens_owed_0: u128,
     pub tokens_owed_1: u128,
 }
-
-use crate::{ fixed_point_128, liquidity_math };
 
 // Define trait for updating position
 trait UpdatePosition {
@@ -28,7 +30,7 @@ trait UpdatePosition {
         &mut self,
         liquidity_delta: i128,
         fee_growth_inside_0_x128: U256,
-        fee_growth_inside_1_x128: U256
+        fee_growth_inside_1_x128: U256,
     );
 }
 
@@ -42,7 +44,7 @@ impl UpdatePosition for PositionInfo {
         &mut self,
         liquidity_delta: i128,
         fee_growth_inside_0_x128: U256,
-        fee_growth_inside_1_x128: U256
+        fee_growth_inside_1_x128: U256,
     ) {
         let liquidity_next: u128 = if liquidity_delta == 0 && self.liquidity > 0 {
             self.liquidity
@@ -53,15 +55,17 @@ impl UpdatePosition for PositionInfo {
         // calculate accumulated fees
         let tokens_owed_0 = FullMath::mul_div(
             fee_growth_inside_0_x128 - self.fee_growth_inside_0_last_x128,
-            self.liquidity.as_u256(),
-            fixed_point_128::get_q128()
-        ).as_u128();
+            U256::from(self.liquidity),
+            fixed_point_128::get_q128(),
+        )
+        .as_u128();
 
         let tokens_owed_1 = FullMath::mul_div(
             fee_growth_inside_1_x128 - self.fee_growth_inside_1_last_x128,
-            self.liquidity.as_u256(),
-            fixed_point_128::get_q128()
-        ).as_u128();
+            U256::from(self.liquidity),
+            fixed_point_128::get_q128(),
+        )
+        .as_u128();
 
         // update the position
         if liquidity_delta != 0 {

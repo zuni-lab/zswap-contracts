@@ -1,10 +1,7 @@
-use ethnum::U256;
-
-use super::num160::U160;
-use crate::full_math::FullMathTrait;
-
-use super::fixed_point_96;
-use super::full_math::{ FullMath, MathOps };
+use crate::fixed_point_96;
+use crate::full_math::{FullMath, FullMathTrait, MathOps};
+use crate::num160::U160;
+use crate::num256::U256;
 
 /// @notice Add a signed liquidity delta to liquidity and revert if it overflows or underflows
 /// @param x The liquidity before change
@@ -26,7 +23,7 @@ pub fn add_delta(x: u128, y: i128) -> u128 {
 pub fn get_liquidity_for_amount_0(
     _sqrt_price_a_x96: U160,
     _sqrt_price_b_x96: U160,
-    amount_0: U256
+    amount_0: U256,
 ) -> u128 {
     let (sqrt_price_a_x96, sqrt_price_b_x96) = if _sqrt_price_a_x96 > _sqrt_price_b_x96 {
         (_sqrt_price_b_x96, _sqrt_price_a_x96)
@@ -37,12 +34,12 @@ pub fn get_liquidity_for_amount_0(
     let intermediate = FullMath::mul_div(
         sqrt_price_a_x96,
         sqrt_price_b_x96,
-        fixed_point_96::get_q96()
+        fixed_point_96::get_q96(),
     );
     let liquidity = FullMath::mul_div(
         amount_0,
         intermediate,
-        sqrt_price_b_x96.sub(sqrt_price_a_x96)
+        sqrt_price_b_x96.sub(sqrt_price_a_x96),
     );
     liquidity.as_u128()
 }
@@ -51,7 +48,7 @@ pub fn get_liquidity_for_amount_0(
 fn get_liquidity_for_amount_1(
     _sqrt_price_a_x96: U160,
     _sqrt_price_b_x96: U160,
-    amount_1: U256
+    amount_1: U256,
 ) -> u128 {
     let (sqrt_price_a_x96, sqrt_price_b_x96) = if _sqrt_price_a_x96 > _sqrt_price_b_x96 {
         (_sqrt_price_b_x96, _sqrt_price_a_x96)
@@ -62,7 +59,7 @@ fn get_liquidity_for_amount_1(
     let liquidity = FullMath::mul_div(
         amount_1,
         fixed_point_96::get_q96(),
-        sqrt_price_b_x96.sub(sqrt_price_a_x96)
+        sqrt_price_b_x96.sub(sqrt_price_a_x96),
     );
     liquidity.as_u128()
 }
@@ -72,7 +69,7 @@ pub fn get_liquidity_for_amounts(
     _sqrt_price_a_x96: U160,
     _sqrt_price_b_x96: U160,
     amount_0: U256,
-    amount_1: U256
+    amount_1: U256,
 ) -> u128 {
     let (sqrt_price_a_x96, sqrt_price_b_x96) = if _sqrt_price_a_x96 > _sqrt_price_b_x96 {
         (_sqrt_price_b_x96, _sqrt_price_a_x96)
@@ -86,7 +83,11 @@ pub fn get_liquidity_for_amounts(
     } else if sqrt_price_x96 <= sqrt_price_b_x96 {
         let liquidity_0 = get_liquidity_for_amount_0(sqrt_price_x96, sqrt_price_b_x96, amount_0);
         let liquidity_1 = get_liquidity_for_amount_1(sqrt_price_a_x96, sqrt_price_x96, amount_1);
-        liquidity = if liquidity_0 < liquidity_1 { liquidity_0 } else { liquidity_1 };
+        liquidity = if liquidity_0 < liquidity_1 {
+            liquidity_0
+        } else {
+            liquidity_1
+        };
     } else {
         liquidity = get_liquidity_for_amount_1(sqrt_price_a_x96, sqrt_price_b_x96, amount_1);
     }
@@ -94,7 +95,11 @@ pub fn get_liquidity_for_amounts(
 }
 
 pub fn add_liquidity(x: u128, y: i128) -> u128 {
-    let z: u128 = if y < 0 { x - (y as u128) } else { x + (y as u128) };
+    let z: u128 = if y < 0 {
+        x - (y as u128)
+    } else {
+        x + (y as u128)
+    };
     z
 }
 
@@ -110,28 +115,19 @@ mod tests {
         assert_eq!(add_delta(1, -1), 0);
         assert_eq!(add_delta(1, 1), 2);
         // 2**128-15 + 15 overflows
-        assert!(
-            panic
-                ::catch_unwind(|| {
-                    add_delta((U256::new(2).pow(128) - U256::new(15)).as_u128(), 15);
-                })
-                .is_err()
-        );
+        assert!(panic::catch_unwind(|| {
+            add_delta((U256::new(2).pow(128) - U256::new(15)).as_u128(), 15);
+        })
+        .is_err());
         // 0 + -1 underflows
-        assert!(
-            panic
-                ::catch_unwind(|| {
-                    add_delta(0, -1);
-                })
-                .is_err()
-        );
+        assert!(panic::catch_unwind(|| {
+            add_delta(0, -1);
+        })
+        .is_err());
         // 3 + -4 underflows
-        assert!(
-            panic
-                ::catch_unwind(|| {
-                    add_delta(3, -4);
-                })
-                .is_err()
-        );
+        assert!(panic::catch_unwind(|| {
+            add_delta(3, -4);
+        })
+        .is_err());
     }
 }
