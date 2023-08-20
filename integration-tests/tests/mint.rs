@@ -7,10 +7,10 @@ use helper::*;
 
 mod helper;
 
-// #[tokio::test]
+#[tokio::test]
 async fn test_mint_properly() -> anyhow::Result<()> {
     let worker = workspaces::sandbox().await?;
-    println!("Setupping...");
+    println!("Setuping...");
     let context = init(&worker).await?;
     let liqudity_provider = context.deployer;
     println!("✅ Setup done");
@@ -72,8 +72,8 @@ async fn test_mint_properly() -> anyhow::Result<()> {
         upper_tick: 500,
         amount_0_desired: token_0_amount,
         amount_1_desired: token_1_amount,
-        amount_0_min: U128::from(50),
-        amount_1_min: U128::from(100_000),
+        amount_0_min: U128::from(0),
+        amount_1_min: U128::from(0),
     };
     let res = liqudity_provider
         .call(context.manager_contract.id(), "mint")
@@ -81,10 +81,10 @@ async fn test_mint_properly() -> anyhow::Result<()> {
         .max_gas()
         .transact()
         .await?;
-    println!("{:#?}", res.clone().into_result()?);
     res.logs().iter().for_each(|log| {
         println!("integration test log: {:?}", log);
     });
+    println!("{:#?}", res.clone().into_result()?);
 
     Ok(())
 }

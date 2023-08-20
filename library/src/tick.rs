@@ -8,25 +8,25 @@ use crate::tick_math::{TickConstants};
 
 // info stored for each initialized individual tick
 pub struct TickInfo {
-  // the total position liquidity that references this tick
-  liquidity_gross: u128,
-  // amount of net liquidity added (subtracted) when tick is crossed from left to right (right to left),
-  liquidity_net: i128,
-  // fee growth per unit of liquidity on the _other_ side of this tick (relative to the current tick)
-  // only has relative meaning, not absolute — the value depends on when the tick is initialized
-  fee_growth_outside0_x128: U256,
-  fee_growth_outside1_x128: U256,
-  // the cumulative tick value on the other side of the tick
-  tick_cumulative_outside: I56,
-  // the seconds per unit of liquidity on the _other_ side of this tick (relative to the current tick)
-  // only has relative meaning, not absolute — the value depends on when the tick is initialized
-  seconds_per_liquidity_outside_x128: U160,
-  // the seconds spent on the other side of the tick (relative to the current tick)
-  // only has relative meaning, not absolute — the value depends on when the tick is initialized
-  seconds_outside: u32,
-  // true iff the tick is initialized, i.e. the value is exactly equivalent to the expression liquidityGross != 0
-  // these 8 bits are set to prevent fresh stores when crossing newly initialized ticks
-  initialized: bool,
+    // the total position liquidity that references this tick
+    liquidity_gross: u128,
+    // amount of net liquidity added (subtracted) when tick is crossed from left to right (right to left),
+    liquidity_net: i128,
+    // fee growth per unit of liquidity on the _other_ side of this tick (relative to the current tick)
+    // only has relative meaning, not absolute — the value depends on when the tick is initialized
+    fee_growth_outside0_x128: U256,
+    fee_growth_outside1_x128: U256,
+    // the cumulative tick value on the other side of the tick
+    tick_cumulative_outside: I56,
+    // the seconds per unit of liquidity on the _other_ side of this tick (relative to the current tick)
+    // only has relative meaning, not absolute — the value depends on when the tick is initialized
+    seconds_per_liquidity_outside_x128: U160,
+    // the seconds spent on the other side of the tick (relative to the current tick)
+    // only has relative meaning, not absolute — the value depends on when the tick is initialized
+    seconds_outside: u32,
+    // true iff the tick is initialized, i.e. the value is exactly equivalent to the expression liquidityGross != 0
+    // these 8 bits are set to prevent fresh stores when crossing newly initialized ticks
+    initialized: bool,
 }
 
 /// @title Tick

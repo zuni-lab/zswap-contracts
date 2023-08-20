@@ -3447,12 +3447,12 @@ dependencies = [
 name = "zswap-manager"
 version = "1.0.0"
 dependencies = [
+ "ethnum",
  "hex 0.4.3",
  "near-contract-standards",
  "near-sdk",
  "uint",
  "zswap-math-library",
- "zswap-pool",
 ]
 
 [[package]]

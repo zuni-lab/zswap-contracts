@@ -20,6 +20,9 @@ impl Contract {
         liquidity_delta: i128,
     ) -> (String, i128, i128) {
         //TODO: implement this function correctly
+        // let slot_0 = self.slot_0;
+        // let position = self.positions.get(&address).unwrap_or_default();
+        // let tick = self.ticks;
 
         let return_message = format!(
             "modify_position({}, {}, {}, {})",

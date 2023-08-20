@@ -1,4 +1,6 @@
+use ethnum::{AsU256, U256};
 use near_contract_standards::fungible_token::core::ext_ft_core;
+use near_contract_standards::non_fungible_token::NonFungibleToken;
 // Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
@@ -6,9 +8,11 @@ use near_sdk::json_types::{I128, U128};
 use near_sdk::{
     env, log, near_bindgen, AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseError,
 };
+use pool::{ext_zswap_pool, Slot0};
 use utils::{SwapCallbackData, SwapSingleParams};
-use zswap_pool::core_trait::ext_zswap_pool_core;
-use zswap_pool::utils::Slot0;
+use zswap_math_library::liquidity_math;
+use zswap_math_library::num160::To160;
+use zswap_math_library::tick_math::{self};
 
 use crate::ft_account::Account;
 use crate::utils::*;
@@ -18,7 +22,8 @@ mod error;
 mod ft_account;
 mod ft_receiver;
 mod internal;
-// mod pool;
+// mod nft;
+mod pool;
 pub mod utils;
 mod views;
 
@@ -27,6 +32,7 @@ mod views;
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     factory: AccountId,
+    // nft: NonFungibleToken,
     accounts: LookupMap<AccountId, Account>,
 }
 
@@ -43,6 +49,11 @@ pub(crate) enum StorageKey {
         spender_id: AccountId,
         token_id: AccountId,
     },
+    // NonFungibleToken,
+    // Metadata,
+    // TokenMetadata,
+    // Enumeration,
+    // Approval,
 }
 
 // Implement the contract structure
@@ -50,7 +61,15 @@ pub(crate) enum StorageKey {
 impl Contract {
     #[init]
     pub fn new(factory: AccountId) -> Self {
+        // let nft = NonFungibleToken::new(
+        //     StorageKey::NonFungibleToken,
+        //     env::current_account_id(),
+        //     Some(StorageKey::TokenMetadata),
+        //     Some(StorageKey::Enumeration),
+        //     Some(StorageKey::Approval),
+        // );
         Self {
+            // nft,
             factory,
             accounts: LookupMap::new(StorageKey::Accounts),
         }
@@ -72,7 +91,7 @@ impl Contract {
         let pool = self.get_pool(&params.token_0, &params.token_1, params.fee);
         let receipient = env::predecessor_account_id();
 
-        ext_zswap_pool_core::ext(pool.clone()).get_slot_0().then(
+        ext_zswap_pool::ext(pool.clone()).get_slot_0().then(
             Self::ext(env::current_account_id()).calculate_liquidity(pool, receipient, params),
         )
     }
@@ -140,9 +159,16 @@ impl Contract {
     ) -> Promise {
         let slot_0 = slot_0_res.unwrap();
         let sqrt_price_x96 = slot_0.sqrt_price_x96;
-        let sqrt_price_lower_x96 = 0u128; // TODO: Add TickMath.getSqrtRatioAtTick
-        let sqrt_price_upper_x96 = 0u128; // TODO: Add TickMath.getSqrtRatioAtTick
-        let liquidity = U128::from(10); // TODO: Add TickMath.getLiquidityForAmounts
+        let sqrt_price_lower_x96 = tick_math::get_sqrt_ratio_at_tick(params.lower_tick);
+        let sqrt_price_upper_x96 = tick_math::get_sqrt_ratio_at_tick(params.upper_tick);
+        let liquidity = liquidity_math::get_liquidity_for_amounts(
+            sqrt_price_x96.0.as_u256().to160bit(),
+            sqrt_price_lower_x96.to160bit(),
+            sqrt_price_upper_x96.to160bit(),
+            params.amount_0_desired.0.as_u256(),
+            params.amount_1_desired.0.as_u256(),
+        );
+        log!("manager/src/lib.rs line 144: {}", liquidity);
 
         let pool_callback_data = PoolCallbackData {
             token_0: params.token_0.clone(),
@@ -155,12 +181,12 @@ impl Contract {
         recipient_account.internal_approve_token(&pool, &params.token_0, params.amount_0_desired.0);
         recipient_account.internal_approve_token(&pool, &params.token_1, params.amount_1_desired.0);
 
-        ext_zswap_pool_core::ext(pool)
+        ext_zswap_pool::ext(pool)
             .mint(
                 recipient,
                 params.lower_tick,
                 params.upper_tick,
-                liquidity,
+                U128::from(liquidity),
                 data,
             )
             .then(

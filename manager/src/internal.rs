@@ -1,10 +1,11 @@
 use std::cmp::Ordering;
 
 use near_sdk::{env, AccountId, Balance, Promise};
-use zswap_pool::core_trait::ext_zswap_pool_core;
+// use zswap_pool::core_trait::ext_zswap_pool_core;
 
 use crate::error::TOKENS_MUST_BE_DIFFERENT;
 use crate::ft_account::Account;
+use crate::pool::ext_zswap_pool;
 use crate::utils::SwapCallbackData;
 use crate::Contract;
 
@@ -39,7 +40,7 @@ impl Contract {
         let pool = self.get_pool(&data.token_0, &data.token_1, data.fee);
         let encoded_data = near_sdk::serde_json::to_vec(&data).unwrap();
 
-        ext_zswap_pool_core::ext(pool)
+        ext_zswap_pool::ext(pool)
             .swap(
                 recipient,
                 zero_for_one,

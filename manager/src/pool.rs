@@ -22,11 +22,11 @@ pub trait ZswapPool {
 
     fn swap(
         &mut self,
-        token_in: AccountId,
-        token_out: AccountId,
-        amount_in: u128,
-        amount_out_min: u128,
         recipient: AccountId,
+        zero_for_one: bool,
+        amount_specified: U128,
+        sqrt_price_limit_x96: U128,
+        data: Vec<u8>,
     );
 
     fn get_slot_0(&self) -> Slot0;

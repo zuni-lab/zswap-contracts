@@ -4,26 +4,25 @@
 pub mod bit_math;
 pub mod fixed_point_128;
 pub mod fixed_point_96;
-pub mod sqrt_price_math;
 pub mod full_math;
-mod liquidity_math;
-pub mod math;
-mod num160;
-mod num24;
-mod num56;
-mod position;
-mod swap_math;
-mod tick;
-mod tick_bitmap;
+pub mod liquidity_math;
+pub mod num160;
+pub mod num24;
+pub mod num56;
+pub mod position;
+pub mod sqrt_price_math;
+pub mod swap_math;
+pub mod tick;
+pub mod tick_bitmap;
 pub mod tick_math;
 
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
+// pub fn add(left: usize, right: usize) -> usize {
+//     left + right
+// }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    // use super::*;
 
     // use crate::lib::Math;
     // use crate::lib::TickMath;

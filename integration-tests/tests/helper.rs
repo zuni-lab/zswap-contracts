@@ -28,7 +28,7 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
     let account = worker.dev_create_account().await?;
     let deployer = account
         .create_subaccount("deployer")
-        .initial_balance(parse_near!("50 N"))
+        .initial_balance(parse_near!("90 N"))
         .transact()
         .await?
         .into_result()?;
@@ -48,6 +48,7 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
         .transact()
         .await?
         .into_result()?;
+    println!("Created token 0 & 1");
 
     manager_contract
         .call("new")
@@ -56,16 +57,18 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
         .transact()
         .await?
         .into_result()?;
+    println!("Created manager");
 
     // create new pool
     let pool_id = deployer
         .call(factory_contract.id(), "create_pool")
         .args_json((token_0_contract.id(), token_1_contract.id(), POOL_FEE))
-        .deposit(parse_near!("10 N"))
+        .deposit(parse_near!("50 N"))
         .max_gas()
         .transact()
         .await?
         .json::<AccountId>()?;
+    println!("Created pool {}", pool_id);
 
     // add storage deposit for manager & pool contract
     deployer
