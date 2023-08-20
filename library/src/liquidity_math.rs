@@ -10,8 +10,8 @@ use super::full_math::{FullMath, MathOps};
 /// @param x The liquidity before change
 /// @param y The delta by which liquidity should be changed
 /// @return z The liquidity delta
-pub(crate) fn add_delta(x: u128, y: i128) -> u128 {
-    let mut z = 0;
+pub fn add_delta(x: u128, y: i128) -> u128 {
+    let z;
     if y < 0 {
         z = x - ((0 - y) as u128);
         assert!(z < x);
@@ -23,7 +23,7 @@ pub(crate) fn add_delta(x: u128, y: i128) -> u128 {
 }
 
 /// $L = \frac{\Delta x \sqrt{P_u} \sqrt{P_l}}{\Delta \sqrt{P}}$
-fn get_liquidity_for_amount_0(
+pub fn get_liquidity_for_amount_0(
     _sqrt_price_a_x96: U160,
     _sqrt_price_b_x96: U160,
     amount_0: U256,
@@ -67,7 +67,7 @@ fn get_liquidity_for_amount_1(
     liquidity.as_u128()
 }
 
-fn get_liquidity_for_amounts(
+pub fn get_liquidity_for_amounts(
     sqrt_price_x96: U160,
     _sqrt_price_a_x96: U160,
     _sqrt_price_b_x96: U160,
@@ -97,7 +97,7 @@ fn get_liquidity_for_amounts(
     liquidity
 }
 
-fn add_liquidity(x: u128, y: i128) -> u128 {
+pub fn add_liquidity(x: u128, y: i128) -> u128 {
     let z: u128 = if y < 0 {
         x - (y as u128)
     } else {

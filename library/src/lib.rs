@@ -1,6 +1,3 @@
-#![allow(unused_doc_comments)]
-#![allow(dead_code)]
-
 pub mod bit_math;
 pub mod fixed_point_128;
 pub mod fixed_point_96;
@@ -15,10 +12,6 @@ pub mod swap_math;
 pub mod tick;
 pub mod tick_bitmap;
 pub mod tick_math;
-
-// pub fn add(left: usize, right: usize) -> usize {
-//     left + right
-// }
 
 #[cfg(test)]
 mod tests {

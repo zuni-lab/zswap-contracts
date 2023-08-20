@@ -43,8 +43,8 @@ impl TickConstants {
 /// @param tick The input tick for the above formula
 /// @return sqrtPriceX96 A Fixed point Q64.96 number representing the sqrt of the ratio of the two assets (token1/token0)
 /// at the given tick
-fn get_sqrt_ratio_at_tick(tick: I24) -> U160 {
-    /// second inequality must be < because the price can never reach the price at the max tick
+pub fn get_sqrt_ratio_at_tick(tick: I24) -> U160 {
+    // second inequality must be < because the price can never reach the price at the max tick
     let abs_tick = if tick < 0 {
         (I256::ZERO - tick.as_i256()).as_u256()
     } else {
@@ -143,8 +143,7 @@ fn get_sqrt_ratio_at_tick(tick: I24) -> U160 {
 /// @param sqrtPriceX96 The sqrt ratio for which to compute the tick as a Q64.96
 /// @return tick The greatest tick for which the ratio is less than or equal to the input ratio
 pub fn get_tick_at_sqrt_ratio(sqrt_price_x96: U160) -> I24 {
-    /// second inequality must be < because the price can never reach the price at the max tick
-
+    // second inequality must be < because the price can never reach the price at the max tick
     assert!(
         sqrt_price_x96 >= TickConstants::MIN_SQRT_RATIO
             && sqrt_price_x96 < TickConstants::max_sqrt_ratio(),

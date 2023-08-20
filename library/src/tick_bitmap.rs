@@ -1,6 +1,6 @@
-use ethnum::U256;
-use crate::num24::I24;
 use crate::bit_math::*;
+use crate::num24::I24;
+use ethnum::U256;
 
 /// @title Packed tick initialized state library
 /// @notice Stores a packed mapping of tick index to its initialized state
@@ -10,10 +10,10 @@ use crate::bit_math::*;
 /// @param tick The tick for which to compute the position
 /// @return wordPos The key in the mapping containing the word in which the bit is stored
 /// @return bitPos The bit position in the word where the flag is stored
-fn position(tick: I24) -> (i16, u8) {
-  let word_pos = (tick >> 8) as i16;
-  let bit_pos = (tick % 256) as u8;
-  (word_pos, bit_pos)
+pub fn position(tick: I24) -> (i16, u8) {
+    let word_pos = (tick >> 8) as i16;
+    let bit_pos = (tick % 256) as u8;
+    (word_pos, bit_pos)
 }
 
 /// !MODIFIED
@@ -22,11 +22,11 @@ fn position(tick: I24) -> (i16, u8) {
 /// @param tick The tick to flip
 /// @param
 /// @param tickSpacing The spacing between usable ticks
-fn flip_tick(tick: I24, tick_spacing: I24, old_word: U256) -> U256 {
-  assert_eq!(tick % tick_spacing, 0); // ensure that the tick is spaced
-  let (_word_pos, bit_pos) = position(tick / tick_spacing);
-  let mask = U256::new(1) << bit_pos;
-  old_word ^ mask
+pub fn flip_tick(tick: I24, tick_spacing: I24, old_word: U256) -> U256 {
+    assert_eq!(tick % tick_spacing, 0); // ensure that the tick is spaced
+    let (_word_pos, bit_pos) = position(tick / tick_spacing);
+    let mask = U256::new(1) << bit_pos;
+    old_word ^ mask
 }
 
 /// !MODIFIED
@@ -39,61 +39,64 @@ fn flip_tick(tick: I24, tick_spacing: I24, old_word: U256) -> U256 {
 /// !@param get_word A function to get word by word position from a tick bitmap
 /// @return next The next initialized or uninitialized tick up to 256 ticks away from the current tick
 /// @return initialized Whether the next tick is initialized, as the function only searches within up to 256 ticks
-fn next_initialized_tick_within_one_word(
-  tick: I24,
-  tick_spacing: I24,
-  lte: bool,
-  get_word: fn(i16) -> U256,
+pub fn next_initialized_tick_within_one_word(
+    tick: I24,
+    tick_spacing: I24,
+    lte: bool,
+    get_word: fn(i16) -> U256,
 ) -> (I24, bool) {
-  assert_ne!(tick_spacing, 0);
-  let mut compressed: I24 = tick / tick_spacing;
-  if tick < 0 && tick % tick_spacing != 0 { // round towards negative infinity
-    compressed -= 1;
-  }
-  let mut initialized: bool = false;
-  let mut next: I24 = 0;
+    assert_ne!(tick_spacing, 0);
+    let mut compressed: I24 = tick / tick_spacing;
+    if tick < 0 && tick % tick_spacing != 0 {
+        // round towards negative infinity
+        compressed -= 1;
+    }
+    let initialized: bool;
+    let next: I24;
 
-  if lte {
-    let (word_pos, bit_pos) = position(compressed);
-    // all the 1s at or to the right of the current bitPos
-    let mask = (U256::ONE << bit_pos) - U256::ONE + (U256::ONE << bit_pos);
-    let masked = get_word(word_pos) & mask;
+    if lte {
+        let (word_pos, bit_pos) = position(compressed);
+        // all the 1s at or to the right of the current bitPos
+        let mask = (U256::ONE << bit_pos) - U256::ONE + (U256::ONE << bit_pos);
+        let masked = get_word(word_pos) & mask;
 
-    // if there are no initialized ticks to the right of or at the current tick, return rightmost in the word
-    initialized = masked != U256::ZERO;
-    // overflow/underflow is possible, but prevented externally by limiting both tickSpacing and tick
-    next = if initialized {
-      ((compressed - (bit_pos as I24 - masked.most_significant_bit() as I24)) as I24) * tick_spacing
+        // if there are no initialized ticks to the right of or at the current tick, return rightmost in the word
+        initialized = masked != U256::ZERO;
+        // overflow/underflow is possible, but prevented externally by limiting both tickSpacing and tick
+        next = if initialized {
+            ((compressed - (bit_pos as I24 - masked.most_significant_bit() as I24)) as I24)
+                * tick_spacing
+        } else {
+            (compressed - (bit_pos as I24)) * tick_spacing
+        };
     } else {
-      (compressed - (bit_pos as I24)) * tick_spacing
-    };
-  } else {
-    // start from the word of the next tick, since the current tick state doesn't matter
-    let (word_pos, bit_pos) = position(compressed + 1);
-    // all the 1s at or to the left of the bitPos
-    let mask = !((U256::ONE << bit_pos) - U256::ONE);
-    let masked = get_word(word_pos) & mask;
+        // start from the word of the next tick, since the current tick state doesn't matter
+        let (word_pos, bit_pos) = position(compressed + 1);
+        // all the 1s at or to the left of the bitPos
+        let mask = !((U256::ONE << bit_pos) - U256::ONE);
+        let masked = get_word(word_pos) & mask;
 
-    // if there are no initialized ticks to the left of the current tick, return leftmost in the word
-    initialized = masked != U256::ZERO;
-    next = if initialized {
-      (compressed + 1 + (masked.least_significant_bit() as I24 - bit_pos as I24)) * tick_spacing
-    } else {
-      (compressed + 1 + (u8::MAX as I24 - bit_pos as I24)) * tick_spacing
-    };
-  }
+        // if there are no initialized ticks to the left of the current tick, return leftmost in the word
+        initialized = masked != U256::ZERO;
+        next = if initialized {
+            (compressed + 1 + (masked.least_significant_bit() as I24 - bit_pos as I24))
+                * tick_spacing
+        } else {
+            (compressed + 1 + (u8::MAX as I24 - bit_pos as I24)) * tick_spacing
+        };
+    }
 
-  (next, initialized)
+    (next, initialized)
 }
 
 #[cfg(test)]
 mod tests {
-  #[test]
-  fn test_position() {}
+    #[test]
+    fn test_position() {}
 
-  #[test]
-  fn test_flip_tick() {}
+    #[test]
+    fn test_flip_tick() {}
 
-  #[test]
-  fn test_next_initialized_tick_within_one_word() {}
+    #[test]
+    fn test_next_initialized_tick_within_one_word() {}
 }

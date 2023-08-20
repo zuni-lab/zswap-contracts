@@ -1,8 +1,4 @@
-#![allow(unused_doc_comments)]
-#![allow(dead_code)]
-#![allow(unused_variables)]
-
-use ethnum::{AsU256, U256};
+use ethnum::U256;
 
 pub struct FullMath;
 
@@ -108,8 +104,8 @@ impl FullMathTrait for FullMath {
         // then use the Chinese Remainder Theorem to reconstruct
         // the 512 bit result. The result is stored in two 256
         // variables such that product = prod1 * 2**256 + prod0
-        let prod0: U256; // Least significant 256 bits of the product
-        let prod1: U256; // Most significant 256 bits of the product
+        // let prod0: U256; // Least significant 256 bits of the product
+        // let prod1: U256; // Most significant 256 bits of the product
 
         let mm = MathOps::mulmod(a, b, !U256::ZERO);
         let mut prod0 = MathOps::mul(a, b);
@@ -304,7 +300,9 @@ impl FullMathEchidnaTest for FullMathTestEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
+
     use crate::full_math::MathOps;
+    use ethnum::AsU256;
     use std::str::FromStr;
 
     #[test]

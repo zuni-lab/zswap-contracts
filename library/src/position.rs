@@ -1,15 +1,6 @@
-#![allow(unused_imports)]
-#![allow(dead_code)]
-
 use ethnum::{AsU256, U256};
 
-use super::fixed_point_128::*;
-use super::fixed_point_128::*;
-use super::fixed_point_96;
-use super::full_math::{FullMath, MathOps};
-use super::liquidity_math::*;
-use super::liquidity_math::*;
-use super::num160::{I160, U160};
+use super::full_math::FullMath;
 use crate::full_math::FullMathTrait;
 
 // info stored for each user's position
@@ -25,7 +16,6 @@ pub struct PositionInfo {
 }
 
 use crate::{fixed_point_128, liquidity_math};
-use std::ops::{Add, Div, Mul, Sub};
 
 // Define trait for updating position
 trait UpdatePosition {
@@ -94,8 +84,8 @@ impl UpdatePosition for PositionInfo {
 
 #[cfg(test)]
 mod tests {
-    use ethnum::U256;
-    use std::panic;
+    // use ethnum::U256;
+    // use std::panic;
 
     #[test]
     fn test_position_update() {
