@@ -1,0 +1,20 @@
+[package]
+name = "zswap-pool"
+version = "1.0.0"
+authors = ["DV Lab"]
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = "4.0.0"
+near-contract-standards = "4.0.0"
+uint = { version = "0.9.3", default-features = false }
+ethnum = "1.3.2"
+zswap-math-library = { path = "../library" }
+
+# [dev-dependencies.cargo-husky]
+# version = "1"
+# default-features = false
+# features = ["user-hooks"]
