@@ -3,12 +3,11 @@
   "version": "1.0.0",
   "license": "(MIT AND Apache-2.0)",
   "scripts": {
-    "deploy": "cd contract && ./deploy.sh",
-    "build": "npm run build:contract",
-    "build:contract": "./build.sh",
+    "deploy": "./deploy.sh",
+    "build": "./build.sh",
     "test": "npm run test:unit && npm run test:integration",
-    "test:unit": "cd contract && cargo test",
-    "test:integration": "npm run build && cd integration-tests && cargo test --package zswap-integration-tests -- --nocapture",
+    "test:unit": "echo no unit test",
+    "test:integration": "npm run build && cargo test --package zswap-integration-tests -- --nocapture",
     "postinstall": "echo no frontend && echo rs tests && echo rs contract"
   },
   "devDependencies": {
