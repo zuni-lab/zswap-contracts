@@ -9,7 +9,7 @@ edition = "2021"
 near-sdk = "4.1.1"
 ethnum = "1.3.2"
 
-# [dev-dependencies.cargo-husky]
-# version = "1"
-# default-features = false
-# features = ["user-hooks"]
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false
+features = ["user-hooks"]
