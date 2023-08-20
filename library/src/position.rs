@@ -1,4 +1,4 @@
-use ethnum::{AsU256, U256};
+use ethnum::{ AsU256, U256 };
 
 use super::full_math::FullMath;
 use crate::full_math::FullMathTrait;
@@ -15,7 +15,7 @@ pub struct PositionInfo {
     pub tokens_owed_1: u128,
 }
 
-use crate::{fixed_point_128, liquidity_math};
+use crate::{ fixed_point_128, liquidity_math };
 
 // Define trait for updating position
 trait UpdatePosition {
@@ -28,7 +28,7 @@ trait UpdatePosition {
         &mut self,
         liquidity_delta: i128,
         fee_growth_inside_0_x128: U256,
-        fee_growth_inside_1_x128: U256,
+        fee_growth_inside_1_x128: U256
     );
 }
 
@@ -42,30 +42,26 @@ impl UpdatePosition for PositionInfo {
         &mut self,
         liquidity_delta: i128,
         fee_growth_inside_0_x128: U256,
-        fee_growth_inside_1_x128: U256,
+        fee_growth_inside_1_x128: U256
     ) {
-        let liquidity_next: u128;
-        if liquidity_delta == 0 {
-            assert!(self.liquidity > 0, "NP"); // disallow pokes for 0 liquidity positions
-            liquidity_next = self.liquidity;
+        let liquidity_next: u128 = if liquidity_delta == 0 && self.liquidity > 0 {
+            self.liquidity
         } else {
-            liquidity_next = liquidity_math::add_delta(self.liquidity, liquidity_delta);
-        }
+            liquidity_math::add_delta(self.liquidity, liquidity_delta)
+        };
 
         // calculate accumulated fees
         let tokens_owed_0 = FullMath::mul_div(
             fee_growth_inside_0_x128 - self.fee_growth_inside_0_last_x128,
             self.liquidity.as_u256(),
-            fixed_point_128::get_q128(),
-        )
-        .as_u128();
+            fixed_point_128::get_q128()
+        ).as_u128();
 
         let tokens_owed_1 = FullMath::mul_div(
             fee_growth_inside_1_x128 - self.fee_growth_inside_1_last_x128,
             self.liquidity.as_u256(),
-            fixed_point_128::get_q128(),
-        )
-        .as_u128();
+            fixed_point_128::get_q128()
+        ).as_u128();
 
         // update the position
         if liquidity_delta != 0 {

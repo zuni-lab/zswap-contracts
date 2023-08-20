@@ -1,4 +1,4 @@
-use ethnum::{AsU256, I256, U256};
+use ethnum::{ AsU256, I256, U256 };
 
 use super::full_math::FullMath;
 use super::num160::U160;
@@ -22,7 +22,7 @@ pub fn compute_swap_step(
     sqrt_ratio_target_x96: U160,
     liquidity: u128,
     amount_remaining: I256,
-    fee_pips: U24,
+    fee_pips: U24
 ) -> (U160, U256, U256, U256) {
     let zero_for_one = sqrt_ratio_current_x96 >= sqrt_ratio_target_x96;
     let exact_in = amount_remaining >= 0;
@@ -30,27 +30,25 @@ pub fn compute_swap_step(
     let sqrt_ratio_next_x96;
     let mut amount_in: U256 = U256::ZERO;
     let mut amount_out: U256 = U256::ZERO;
-    let fee_amount: U256;
-
     if exact_in {
         let amount_remaining_less_fee = FullMath::mul_div(
             amount_remaining.as_u256(),
             U256::new((1_000_000 - fee_pips) as u128),
-            1_000_000.as_u256(),
+            (1_000_000).as_u256()
         );
         amount_in = if zero_for_one {
             sqrt_price_math::get_amount0_delta(
                 sqrt_ratio_target_x96,
                 sqrt_ratio_current_x96,
                 liquidity,
-                true,
+                true
             )
         } else {
             sqrt_price_math::get_amount1_delta(
                 sqrt_ratio_current_x96,
                 sqrt_ratio_target_x96,
                 liquidity,
-                true,
+                true
             )
         };
 
@@ -61,7 +59,7 @@ pub fn compute_swap_step(
                 sqrt_ratio_current_x96,
                 liquidity,
                 amount_remaining_less_fee,
-                zero_for_one,
+                zero_for_one
             );
         }
     } else {
@@ -70,14 +68,14 @@ pub fn compute_swap_step(
                 sqrt_ratio_target_x96,
                 sqrt_ratio_current_x96,
                 liquidity,
-                false,
+                false
             )
         } else {
             sqrt_price_math::get_amount0_delta(
                 sqrt_ratio_current_x96,
                 sqrt_ratio_target_x96,
                 liquidity,
-                false,
+                false
             )
         };
 
@@ -88,7 +86,7 @@ pub fn compute_swap_step(
                 sqrt_ratio_current_x96,
                 liquidity,
                 (I256::ZERO - amount_remaining).as_u256(),
-                zero_for_one,
+                zero_for_one
             );
         }
     }
@@ -103,7 +101,7 @@ pub fn compute_swap_step(
                 sqrt_ratio_next_x96,
                 sqrt_ratio_current_x96,
                 liquidity,
-                true,
+                true
             )
         };
 
@@ -114,7 +112,7 @@ pub fn compute_swap_step(
                 sqrt_ratio_next_x96,
                 sqrt_ratio_current_x96,
                 liquidity,
-                false,
+                false
             )
         };
     } else {
@@ -125,7 +123,7 @@ pub fn compute_swap_step(
                 sqrt_ratio_current_x96,
                 sqrt_ratio_next_x96,
                 liquidity,
-                true,
+                true
             )
         };
 
@@ -136,7 +134,7 @@ pub fn compute_swap_step(
                 sqrt_ratio_current_x96,
                 sqrt_ratio_next_x96,
                 liquidity,
-                false,
+                false
             )
         };
     }
@@ -146,17 +144,11 @@ pub fn compute_swap_step(
         amount_out = (I256::ZERO - amount_remaining).as_u256();
     }
 
-    if exact_in && sqrt_ratio_next_x96 != sqrt_ratio_target_x96 {
-        // we didn't reach the target, so take the remainder of the maximum input as fee
-        fee_amount = (I256::ZERO - amount_remaining).as_u256() - amount_in;
+    let fee_amount: U256 = if exact_in && sqrt_ratio_next_x96 != sqrt_ratio_target_x96 {
+        (I256::ZERO - amount_remaining).as_u256() - amount_in
     } else {
-        fee_amount = FullMath::mul_div(
-            amount_in,
-            fee_pips.as_u256(),
-            (1_000_000 - fee_pips).as_u256(),
-        );
-    }
-
+        FullMath::mul_div(amount_in, fee_pips.as_u256(), (1_000_000 - fee_pips).as_u256())
+    };
     (sqrt_ratio_next_x96, amount_in, amount_out, fee_amount)
 }
 

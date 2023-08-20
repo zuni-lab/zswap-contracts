@@ -82,7 +82,7 @@ impl Contract {
 
     #[payable]
     pub fn create_pool(&mut self, token_0: AccountId, token_1: AccountId, fee: u32) -> Promise {
-        if self.fees.get(&fee) == None {
+        if self.fees.get(&fee).is_none() {
             env::panic_str(UNSUPPORTED_FEE);
         }
 
@@ -106,7 +106,7 @@ impl Contract {
             fee,
         };
 
-        if self.pools.get(&pool) != None {
+        if self.pools.get(&pool).is_some(){
             env::panic_str(POOL_ALREADY_EXISTS);
         }
 

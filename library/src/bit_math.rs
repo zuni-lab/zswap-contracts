@@ -5,8 +5,8 @@
 use ethnum::U256;
 
 pub trait BitMathTrait {
-  fn most_significant_bit(self) -> u8;
-  fn least_significant_bit(self) -> u8;
+  fn most_significant_bit(&self) -> u8;
+  fn least_significant_bit(&self) -> u8;
 }
 
 impl BitMathTrait for U256 {
@@ -16,8 +16,8 @@ impl BitMathTrait for U256 {
   ///     x >= 2**most_significant_bit(x) and x < 2**(most_significant_bit(x)+1)
   /// @param x the value for which to compute the most significant bit, must be greater than 0
   /// @return r the index of the most significant bit
-  fn most_significant_bit(self) -> u8 {
-    let mut x = self.clone();
+  fn most_significant_bit(&self) -> u8 {
+    let mut x = *self;
     assert!(x > 0, "Value must be greater than 0");
 
     let mut r: u8 = 0;
@@ -61,8 +61,8 @@ impl BitMathTrait for U256 {
   ///     (x & 2**least_significant_bit(x)) != 0 and (x & (2**(least_significant_bit(x)) - 1)) == 0)
   /// @param x the value for which to compute the least significant bit, must be greater than 0
   /// @return r the index of the least significant bit
-  fn least_significant_bit(self) -> u8 {
-    let mut x = self.clone();
+  fn least_significant_bit(&self) -> u8 {
+    let mut x: U256 = *self;
     assert!(x > 0, "Value must be greater than 0");
 
     let mut r: u8 = 255;

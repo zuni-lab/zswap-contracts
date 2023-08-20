@@ -1,6 +1,6 @@
-use crate::num160::{AsU160, U160};
-use crate::num24::{AsI24, I24};
-use ethnum::{AsI256, AsU256, I256, U256};
+use crate::num160::{ AsU160, U160 };
+use crate::num24::{ AsI24, I24 };
+use ethnum::{ AsI256, AsU256, I256, U256 };
 use std::str::FromStr;
 // use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 // use near_sdk::{env, log};
@@ -14,8 +14,7 @@ impl TickConstants {
     pub const MIN_SQRT_RATIO: U160 = U256::new(4295128739);
 
     pub fn max_sqrt_ratio() -> U160 {
-        U160::from_str("1461446703485210103287273052203988822378723970342")
-            .unwrap_or_else(|_| U160::ZERO)
+        U160::from_str("1461446703485210103287273052203988822378723970342").unwrap_or(U160::ZERO)
     }
 }
 //
@@ -51,10 +50,7 @@ pub fn get_sqrt_ratio_at_tick(tick: I24) -> U160 {
         tick.as_i256().as_u256()
     };
     // println!("{} {} {} {}", tick, abs_tick, TickConstants::max_sqrt_ratio(), TickConstants::MIN_TICK - 1);
-    assert!(
-        abs_tick <= TickConstants::MAX_TICK.as_u256(),
-        "Tick out of range"
-    );
+    assert!(abs_tick <= TickConstants::MAX_TICK.as_u256(), "Tick out of range");
 
     let mut ratio = if (abs_tick & 1) != U256::ZERO {
         U256::from_str_hex("0xfffcb933bd6fad37aa2d162d1a594001").unwrap()
@@ -127,14 +123,9 @@ pub fn get_sqrt_ratio_at_tick(tick: I24) -> U160 {
     // this divides by 1<<32 rounding up to go from a get_q128.128 to a get_q128.96.
     // we then downcast because we know the result always fits within 160 bits due to our tick input constraint
     // we round up in the division so get_tick_at_sqrt_ratio of the output price is always consistent
-    let shifted_ratio = (((ratio >> 32)
-        + U256::new(if (ratio % (1u128 << 32)) == U256::ZERO {
-            0
-        } else {
-            1
-        })) as U256)
-        .as_u160();
-    shifted_ratio
+    (
+        ((ratio >> 32) + U256::new(if ratio % (1u128 << 32) == U256::ZERO { 0 } else { 1 })) as U256
+    ).as_u160()
 }
 
 /// @notice Calculates the greatest tick value such that getRatioAtTick(tick) <= ratio
@@ -145,8 +136,8 @@ pub fn get_sqrt_ratio_at_tick(tick: I24) -> U160 {
 pub fn get_tick_at_sqrt_ratio(sqrt_price_x96: U160) -> I24 {
     // second inequality must be < because the price can never reach the price at the max tick
     assert!(
-        sqrt_price_x96 >= TickConstants::MIN_SQRT_RATIO
-            && sqrt_price_x96 < TickConstants::max_sqrt_ratio(),
+        sqrt_price_x96 >= TickConstants::MIN_SQRT_RATIO &&
+            sqrt_price_x96 < TickConstants::max_sqrt_ratio(),
         "Sqrt ratio out of range"
     );
 
@@ -154,27 +145,27 @@ pub fn get_tick_at_sqrt_ratio(sqrt_price_x96: U160) -> I24 {
     let mut r = ratio;
     let mut msb: U256 = U256::new(0);
 
-    let f = U256::new(u128::from(r > 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)) << 7;
+    let f = U256::new(u128::from(r > 0xffffffffffffffffffffffffffffffff)) << 7;
     msb |= f;
     r >>= f;
 
-    let f = U256::new(u128::from(r > 0xFFFFFFFFFFFFFFFF)) << 6;
+    let f = U256::new(u128::from(r > 0xffffffffffffffff)) << 6;
     msb |= f;
     r >>= f;
 
-    let f = U256::new(u128::from(r > 0xFFFFFFFF)) << 5;
+    let f = U256::new(u128::from(r > 0xffffffff)) << 5;
     msb |= f;
     r >>= f;
 
-    let f = U256::new(u128::from(r > 0xFFFF)) << 4;
+    let f = U256::new(u128::from(r > 0xffff)) << 4;
     msb |= f;
     r >>= f;
 
-    let f = U256::new(u128::from(r > 0xFF)) << 3;
+    let f = U256::new(u128::from(r > 0xff)) << 3;
     msb |= f;
     r >>= f;
 
-    let f = U256::new(u128::from(r > 0xF)) << 2;
+    let f = U256::new(u128::from(r > 0xf)) << 2;
     msb |= f;
     r >>= f;
 
@@ -196,19 +187,20 @@ pub fn get_tick_at_sqrt_ratio(sqrt_price_x96: U160) -> I24 {
     for i in 0..14 {
         r = (r * r) >> 127;
         let f = I256::from(((r >> 128) as U256).as_u128());
-        log_2 = log_2 | (f << (63 - i));
+        log_2 |= f << (63 - i);
         if i < 13 {
-            r >>= f
-        };
+            r >>= f;
+        }
     }
 
     let log_sqrt10001: I256 = log_2 * 255738958999603826347141; // 128.128 number
-    let tick_low =
-        (((log_sqrt10001 - 3402992956809132418596140100660247210i128) >> 128) as I256).as_i24();
-    let tick_hi = (((log_sqrt10001
-        + I256::from_str("291339464771989622907027621153398088495").unwrap())
-        >> 128) as I256)
-        .as_i24();
+    let tick_low = (
+        ((log_sqrt10001 - 3402992956809132418596140100660247210i128) >> 128) as I256
+    ).as_i24();
+    let tick_hi = (
+        ((log_sqrt10001 + I256::from_str("291339464771989622907027621153398088495").unwrap()) >>
+            128) as I256
+    ).as_i24();
 
     // let mut l = -887272;
     // let mut r = 887272;
@@ -240,24 +232,24 @@ mod tests {
 
     #[test]
     fn test_get_sqrt_ratio_at_tick() {
-        assert!(panic::catch_unwind(|| {
-            get_sqrt_ratio_at_tick(TickConstants::MIN_TICK - 1);
-        })
-        .is_err());
+        assert!(
+            panic
+                ::catch_unwind(|| {
+                    get_sqrt_ratio_at_tick(TickConstants::MIN_TICK - 1);
+                })
+                .is_err()
+        );
         //throws for too high
-        assert!(panic::catch_unwind(|| {
-            get_sqrt_ratio_at_tick(TickConstants::MAX_TICK + 1);
-        })
-        .is_err());
+        assert!(
+            panic
+                ::catch_unwind(|| {
+                    get_sqrt_ratio_at_tick(TickConstants::MAX_TICK + 1);
+                })
+                .is_err()
+        );
 
-        assert_eq!(
-            get_sqrt_ratio_at_tick(TickConstants::MIN_TICK),
-            U160::new(4295128739)
-        );
-        assert_eq!(
-            get_sqrt_ratio_at_tick(TickConstants::MIN_TICK + 1),
-            U160::new(4295343490)
-        );
+        assert_eq!(get_sqrt_ratio_at_tick(TickConstants::MIN_TICK), U160::new(4295128739));
+        assert_eq!(get_sqrt_ratio_at_tick(TickConstants::MIN_TICK + 1), U160::new(4295343490));
         assert_eq!(
             get_sqrt_ratio_at_tick(TickConstants::MAX_TICK - 1),
             U160::from_str("1461373636630004318706518188784493106690254656249").unwrap()
@@ -268,10 +260,7 @@ mod tests {
             get_sqrt_ratio_at_tick(TickConstants::MAX_TICK),
             U160::from_str("1461446703485210103287273052203988822378723970342").unwrap()
         );
-        assert_eq!(
-            get_sqrt_ratio_at_tick(TickConstants::MIN_TICK),
-            TickConstants::MIN_SQRT_RATIO
-        );
+        assert_eq!(get_sqrt_ratio_at_tick(TickConstants::MIN_TICK), TickConstants::MIN_SQRT_RATIO);
         assert_eq!(
             get_sqrt_ratio_at_tick(TickConstants::MAX_TICK),
             TickConstants::max_sqrt_ratio()
@@ -281,24 +270,24 @@ mod tests {
     #[test]
     fn test_get_tick_at_sqrt_ratio() {
         // //throws for too low
-        assert!(panic::catch_unwind(|| {
-            get_tick_at_sqrt_ratio(TickConstants::MIN_SQRT_RATIO - U160::ONE);
-        })
-        .is_err());
+        assert!(
+            panic
+                ::catch_unwind(|| {
+                    get_tick_at_sqrt_ratio(TickConstants::MIN_SQRT_RATIO - U160::ONE);
+                })
+                .is_err()
+        );
         //throws for too high
-        assert!(panic::catch_unwind(|| {
-            get_tick_at_sqrt_ratio(TickConstants::max_sqrt_ratio());
-        })
-        .is_err());
+        assert!(
+            panic
+                ::catch_unwind(|| {
+                    get_tick_at_sqrt_ratio(TickConstants::max_sqrt_ratio());
+                })
+                .is_err()
+        );
         //
-        assert_eq!(
-            get_tick_at_sqrt_ratio(TickConstants::MIN_SQRT_RATIO),
-            TickConstants::MIN_TICK
-        );
-        assert_eq!(
-            get_tick_at_sqrt_ratio(U160::new(4295343490)),
-            TickConstants::MIN_TICK + 1
-        );
+        assert_eq!(get_tick_at_sqrt_ratio(TickConstants::MIN_SQRT_RATIO), TickConstants::MIN_TICK);
+        assert_eq!(get_tick_at_sqrt_ratio(U160::new(4295343490)), TickConstants::MIN_TICK + 1);
         assert_eq!(
             get_tick_at_sqrt_ratio(
                 U160::from_str("1461373636630004318706518188784493106690254656249").unwrap()

@@ -18,23 +18,23 @@ impl Constants {
 
 ////////////////////////////////////////////
 pub trait AsU24 {
-  fn as_u24(self) -> U24;
+  fn as_u24(&self) -> U24;
 }
 
 impl AsU24 for U24 {
-  fn as_u24(self) -> U24 {
+  fn as_u24(&self) -> U24 {
     self & Constants::get_u24_max()
   }
 }
 
 impl AsU24 for u128 {
-  fn as_u24(self) -> U24 {
+  fn as_u24(&self) -> U24 {
     (self & Constants::get_u24_max() as u128) as U24
   }
 }
 
 impl AsU24 for U256 {
-  fn as_u24(self) -> U24 {
+  fn as_u24(&self) -> U24 {
     (self & Constants::get_u24_max().as_u256()).as_u32() as U24
   }
 }
@@ -42,11 +42,11 @@ impl AsU24 for U256 {
 ////////////////////////////////////////////
 
 pub trait AsI24 {
-  fn as_i24(self) -> I24;
+  fn as_i24(&self) -> I24;
 }
 
 impl AsI24 for I24 {
-  fn as_i24(self) -> I24 {
+  fn as_i24(&self) -> I24 {
     let x = self & Constants::get_u24_max() as I24;
     if (x & (1 << 23)) == 0 {
       x as I24
@@ -57,7 +57,7 @@ impl AsI24 for I24 {
 }
 
 impl AsI24 for i128 {
-  fn as_i24(self) -> I24 {
+  fn as_i24(&self) -> I24 {
     let x = (self & Constants::get_u24_max() as i128) as i32;
     if (x & (1 << 23)) == 0 {
       x as I24
@@ -68,7 +68,7 @@ impl AsI24 for i128 {
 }
 
 impl AsI24 for I256 {
-  fn as_i24(self) -> I24 {
+  fn as_i24(&self) -> I24 {
     let x = self & Constants::get_u24_max().as_i256();
     if (x & (1 << 23)) == 0 {
       x.as_i32() as I24
