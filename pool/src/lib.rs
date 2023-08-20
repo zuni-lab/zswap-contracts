@@ -1,23 +1,18 @@
-use core_trait::CoreZswapPool;
-
-use error::ALREADY_INITIALIZED;
-use ethnum::U256;
 // Find all our documentation at https://docs.near.org
+use ethnum::U256;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{
     env, near_bindgen, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault, Promise,
 };
+use zswap_math_library::tick_math;
 
-use crate::account::Account;
-use crate::error::{INVALID_TICK_RANGE, ZERO_LIQUIDITY};
+use crate::core_trait::CoreZswapPool;
+use crate::error::*;
 use crate::manager::ext_ft_zswap_manager;
 use crate::utils::*;
 
-use zswap_math_library::tick_math;
-
-mod account;
 mod callback;
 pub mod core_trait;
 mod error;
@@ -49,9 +44,6 @@ pub struct Contract {
     ticks: LookupMap<i32, Tick>, // import from `lib`
     tick_bitmap: LookupMap<i16, U256>,
     positions: LookupMap<CryptoHash, Position>, // import from `lib`
-
-    /// Accounts registered, keeping track all the amounts deposited, storage and more.
-    accounts: LookupMap<AccountId, Account>,
 }
 
 /// Helper structure for keys of the persistent collections.
@@ -90,7 +82,6 @@ impl Contract {
             ticks: LookupMap::new(StorageKey::Pools),
             tick_bitmap: LookupMap::new(StorageKey::Pools),
             positions: LookupMap::new(StorageKey::Pools),
-            accounts: LookupMap::new(StorageKey::Accounts),
         }
     }
 
