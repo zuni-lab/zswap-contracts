@@ -112,25 +112,42 @@ mod tests {
     use ethnum::U256;
     use std::panic;
 
-    #[test]
-    fn test_add_delta() {
-        assert_eq!(add_delta(1, 0), 1);
-        assert_eq!(add_delta(1, -1), 0);
-        assert_eq!(add_delta(1, 1), 2);
-        // 2**128-15 + 15 overflows
-        assert!(panic::catch_unwind(|| {
-            add_delta((U256::new(2).pow(128) - U256::new(15)).as_u128(), 15);
-        })
-        .is_err());
-        // 0 + -1 underflows
-        assert!(panic::catch_unwind(|| {
-            add_delta(0, -1);
-        })
-        .is_err());
-        // 3 + -4 underflows
-        assert!(panic::catch_unwind(|| {
-            add_delta(3, -4);
-        })
-        .is_err());
-    }
+  #[test]
+  fn test_add_delta() {
+    assert_eq!(add_delta(1, 0), 1);
+    assert_eq!(add_delta(1, -1), 0);
+    assert_eq!(add_delta(1, 1), 2);
+    // 2**128-15 + 15 overflows
+    assert!(panic::catch_unwind(|| {
+      add_delta((U256::new(2).pow(128) - U256::new(15)).as_u128(), 15);
+    }).is_err());
+    // 0 + -1 underflows
+    assert!(panic::catch_unwind(|| {
+      add_delta(0, -1);
+    }).is_err());
+    // 3 + -4 underflows
+    assert!(panic::catch_unwind(|| {
+      add_delta(3, -4);
+    }).is_err());
+  }
+
+  #[test]
+  fn test_get_liquidity_for_amount_0() {
+    // TODO: @galin-chung-nguyen
+  }
+
+  #[test]
+  fn test_get_liquidity_for_amount_1() {
+    // TODO: @galin-chung-nguyen
+  }
+
+  #[test]
+  fn test_get_liquidity_for_amounts() {
+    // TODO: @galin-chung-nguyen
+  }
+
+  #[test]
+  fn test_add_liquidity() {
+    // TODO: @galin-chung-nguyen
+  }
 }

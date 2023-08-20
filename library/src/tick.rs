@@ -29,6 +29,21 @@ pub struct TickInfo {
     pub initialized: bool,
 }
 
+impl Default for TickInfo {
+  fn default() -> Self {
+    TickInfo {
+      liquidity_gross: 0,
+      liquidity_net: 0,
+      fee_growth_outside0_x128: U256::ZERO,
+      fee_growth_outside1_x128: U256::ZERO,
+      tick_cumulative_outside: 0,
+      seconds_per_liquidity_outside_x128: U160::ZERO,
+      seconds_outside: 0,
+      initialized: false,
+    }
+  }
+}
+
 /// @title Tick
 /// @notice Contains functions for managing tick processes and relevant calculations
 
@@ -206,9 +221,203 @@ pub fn cross(
 #[cfg(not(target_arch = "wasm32"))]
 #[cfg(test)]
 mod tests {
-    #[test]
-    fn test_get_sqrt_ratio_at_tick() {}
+  use std::collections::HashMap;
+  use ethnum::{AsI256, AsU256, U256};
+  use crate::num160::U160;
+  use crate::num24::{AsI24, AsU24};
+  use crate::tick;
+  use crate::tick::{cross, get_fee_growth_inside, TickInfo};
 
-    #[test]
-    fn test_get_tick_at_sqrt_ratio() {}
+  const LOW: u128 = 500;
+  const MEDIUM: u128 = 3000;
+  const HIGH: u128 = 10000;
+
+  fn create_tick_spacings() -> HashMap<u128, u128> {
+    let mut map = HashMap::new();
+    map.insert(LOW, 10);
+    map.insert(MEDIUM, 60);
+    map.insert(HIGH, 200);
+    map
+  }
+
+  #[test]
+  fn test_tick_spacing_to_max_liquidity_per_tick() {
+    let tick_spacings = create_tick_spacings();
+    let expected_values: [(u128, u128); 5] = [
+      (*tick_spacings.get(&LOW).unwrap(), 1917569901783203986719870431555990),
+      (*tick_spacings.get(&MEDIUM).unwrap(), 11505743598341114571880798222544994),
+      (*tick_spacings.get(&HIGH).unwrap(), 38350317471085141830651933667504588),
+      (887272, u128::MAX / 3),
+      (2302, 441351967472034323558203122479595605)
+    ];
+
+    for (tick_spacing, expected) in expected_values.iter() {
+      let max_liquidity_per_tick = tick::tick_spacing_to_max_liquidity_per_tick(tick_spacing.as_i256().as_i24());
+      let expected_liquidity: u128 = (*expected).into();
+      assert_eq!(max_liquidity_per_tick, expected_liquidity);
+    }
+  }
+
+  #[test]
+  fn test_fee_growth_inside_uninitialized_ticks_above() {
+    {
+      // returns all for two uninitialized ticks if tick is inside
+      let (fee_growth_inside0_x128, fee_growth_inside1_x128) = get_fee_growth_inside(-2, 2, &TickInfo::default(), &TickInfo::default(), 0, 15.as_u256(), 15.as_u256());
+      assert_eq!(fee_growth_inside0_x128, 15);
+      assert_eq!(fee_growth_inside1_x128, 15);
+    }
+    {
+      // returns 0 for two uninitialized ticks if tick is above
+      let (fee_growth_inside0_x128, fee_growth_inside1_x128) = get_fee_growth_inside(-2, 2, &TickInfo::default(), &TickInfo::default(), 4, 15.as_u256(), 15.as_u256());
+      assert_eq!(fee_growth_inside0_x128, 0);
+      assert_eq!(fee_growth_inside1_x128, 0);
+    }
+    {
+      // returns 0 for two uninitialized ticks if tick is below
+      let (fee_growth_inside0_x128, fee_growth_inside1_x128) = get_fee_growth_inside(-2, 2, &TickInfo::default(), &TickInfo::default(), -4, 15.as_u256(), 15.as_u256());
+      assert_eq!(fee_growth_inside0_x128, 0);
+      assert_eq!(fee_growth_inside1_x128, 0);
+    }
+    { // subtracts upper tick if below
+      let lower = TickInfo::default();
+      let upper = TickInfo {
+        fee_growth_outside0_x128: U256::new(2),
+        fee_growth_outside1_x128: U256::new(3),
+        liquidity_gross: 0,
+        liquidity_net: 0,
+        seconds_per_liquidity_outside_x128: U160::ZERO,
+        tick_cumulative_outside: 0,
+        seconds_outside: 0,
+        initialized: true,
+      };
+
+      let (fee_growth_inside0_x128, fee_growth_inside1_x128) = get_fee_growth_inside(-2, 2, &lower, &upper, 0, 15.as_u256(), 15.as_u256());
+      assert_eq!(fee_growth_inside0_x128, U256::new(13));
+      assert_eq!(fee_growth_inside1_x128, U256::new(12));
+    }
+    { // subtracts upper tick if above
+      let upper = TickInfo::default();
+      let lower = TickInfo {
+        fee_growth_outside0_x128: U256::new(2),
+        fee_growth_outside1_x128: U256::new(3),
+        liquidity_gross: 0,
+        liquidity_net: 0,
+        seconds_per_liquidity_outside_x128: U160::ZERO,
+        tick_cumulative_outside: 0,
+        seconds_outside: 0,
+        initialized: true,
+      };
+
+      let (fee_growth_inside0_x128, fee_growth_inside1_x128) = get_fee_growth_inside(-2, 2, &lower, &upper, 0, 15.as_u256(), 15.as_u256());
+      assert_eq!(fee_growth_inside0_x128, U256::new(13));
+      assert_eq!(fee_growth_inside1_x128, U256::new(12));
+    }
+    { // subtracts upper and lower tick if inside
+      let lower = TickInfo {
+        fee_growth_outside0_x128: U256::new(2),
+        fee_growth_outside1_x128: U256::new(3),
+        liquidity_gross: 0,
+        liquidity_net: 0,
+        seconds_per_liquidity_outside_x128: U160::ZERO,
+        tick_cumulative_outside: 0,
+        seconds_outside: 0,
+        initialized: true,
+      };
+      let upper = TickInfo {
+        fee_growth_outside0_x128: U256::new(4),
+        fee_growth_outside1_x128: U256::new(1),
+        liquidity_gross: 0,
+        liquidity_net: 0,
+        seconds_per_liquidity_outside_x128: U160::ZERO,
+        tick_cumulative_outside: 0,
+        seconds_outside: 0,
+        initialized: true,
+      };
+
+      let (fee_growth_inside0_x128, fee_growth_inside1_x128) = get_fee_growth_inside(-2, 2, &lower, &upper, 0, 15.as_u256(), 15.as_u256());
+      assert_eq!(fee_growth_inside0_x128, U256::new(9));
+      assert_eq!(fee_growth_inside1_x128, U256::new(11));
+    }
+    { // works correctly with overflow on inside tick
+      let lower = TickInfo {
+        fee_growth_outside0_x128: U256::MAX - U256::new(3),
+        fee_growth_outside1_x128: U256::MAX - U256::new(2),
+        liquidity_gross: 0,
+        liquidity_net: 0,
+        seconds_per_liquidity_outside_x128: U160::ZERO,
+        tick_cumulative_outside: 0,
+        seconds_outside: 0,
+        initialized: true,
+      };
+      let upper = TickInfo {
+        fee_growth_outside0_x128: U256::new(3),
+        fee_growth_outside1_x128: U256::new(5),
+        liquidity_gross: 0,
+        liquidity_net: 0,
+        seconds_per_liquidity_outside_x128: U160::ZERO,
+        tick_cumulative_outside: 0,
+        seconds_outside: 0,
+        initialized: true,
+      };
+
+      let (fee_growth_inside0_x128, fee_growth_inside1_x128) = get_fee_growth_inside(-2, 2, &lower, &upper, 0, 15.as_u256(), 15.as_u256());
+      assert_eq!(fee_growth_inside0_x128, U256::new(16));
+      assert_eq!(fee_growth_inside1_x128, U256::new(13));
+    }
+  }
+
+  #[test]
+  fn test_cross() {
+    { // flips the growth variables
+      let mut tick = TickInfo {
+        fee_growth_outside0_x128: U256::new(1),
+        fee_growth_outside1_x128: U256::new(2),
+        liquidity_gross: 3,
+        liquidity_net: 4,
+        seconds_per_liquidity_outside_x128: U160::new(5),
+        tick_cumulative_outside: 6,
+        seconds_outside: 7,
+        initialized: true,
+      };
+
+      cross(&mut tick, 7, 9, U160::new(8), 15, 10);
+
+      assert_eq!(tick.fee_growth_outside0_x128, U256::new(6));
+      assert_eq!(tick.fee_growth_outside1_x128, U256::new(7));
+      assert_eq!(tick.seconds_per_liquidity_outside_x128, U256::new(3));
+      assert_eq!(tick.tick_cumulative_outside, 9);
+      assert_eq!(tick.seconds_outside, 3);
+    }
+    { // two flips are no op
+      let mut tick = TickInfo {
+        fee_growth_outside0_x128: U256::new(1),
+        fee_growth_outside1_x128: U256::new(2),
+        liquidity_gross: 3,
+        liquidity_net: 4,
+        seconds_per_liquidity_outside_x128: U160::new(5),
+        tick_cumulative_outside: 6,
+        seconds_outside: 7,
+        initialized: true,
+      };
+
+      cross(&mut tick, 7, 9, U160::new(8), 15, 10);
+      cross(&mut tick, 7, 9, U160::new(8), 15, 10);
+
+      assert_eq!(tick.fee_growth_outside0_x128, U256::new(1));
+      assert_eq!(tick.fee_growth_outside1_x128, U256::new(2));
+      assert_eq!(tick.seconds_per_liquidity_outside_x128, U256::new(5));
+      assert_eq!(tick.tick_cumulative_outside, 6);
+      assert_eq!(tick.seconds_outside, 7);
+    }
+  }
+
+  #[test]
+  fn test_update() {
+    // TODO: @galin-chung-nguyen
+  }
+
+  #[test]
+  fn test_clear() {
+    // TODO: @galin-chung-nguyen
+  }
 }

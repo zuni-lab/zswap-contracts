@@ -18,17 +18,17 @@ impl Constants {
 
 ////////////////////////////////////////////
 pub trait AsU56 {
-  fn as_u56(self) -> U56;
+  fn as_u56(&self) -> U56;
 }
 
 impl AsU56 for u128 {
-  fn as_u56(self) -> U56 {
+  fn as_u56(&self) -> U56 {
     (self & Constants::get_u56_max() as u128) as U56
   }
 }
 
 impl AsU56 for U256 {
-  fn as_u56(self) -> U56 {
+  fn as_u56(&self) -> U56 {
     (self & Constants::get_u56_max().as_u256()).as_u128() as U56
   }
 }
@@ -36,11 +36,11 @@ impl AsU56 for U256 {
 ////////////////////////////////////////////
 
 pub trait AsI56 {
-  fn as_i56(self) -> I56;
+  fn as_i56(&self) -> I56;
 }
 
 impl AsI56 for i128 {
-  fn as_i56(self) -> I56 {
+  fn as_i56(&self) -> I56 {
     let x = self & Constants::get_u56_max() as i128;
     if (x & (1 << 55)) == 0 {
       x as I56
@@ -51,7 +51,7 @@ impl AsI56 for i128 {
 }
 
 impl AsI56 for I256 {
-  fn as_i56(self) -> I56 {
+  fn as_i56(&self) -> I56 {
     let x = self & Constants::get_u56_max().as_i256();
     if (x & (1 << 55)) == 0 {
       x.as_i128() as I56
