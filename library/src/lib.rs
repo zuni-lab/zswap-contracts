@@ -2,15 +2,16 @@ pub mod bit_math;
 pub mod fixed_point_128;
 pub mod fixed_point_96;
 pub mod full_math;
-pub mod liquidity_math;
 pub mod num160;
+pub mod liquidity_math;
 pub mod num24;
-pub mod num56;
-pub mod position;
-pub mod sqrt_price_math;
 pub mod swap_math;
 pub mod tick;
+pub mod position;
 pub mod tick_bitmap;
+pub mod num56;
+pub mod utils;
+pub mod sqrt_price_math;
 pub mod tick_math;
 
 #[cfg(test)]

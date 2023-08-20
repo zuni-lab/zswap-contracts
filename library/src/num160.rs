@@ -17,30 +17,30 @@ impl Constants {
 
 ////////////////////////////////////////////
 pub trait AsU160 {
-    fn as_u160(self) -> U160;
+  fn as_u160(&self) -> U160;
 }
 
 impl AsU160 for U256 {
-    fn as_u160(self) -> U160 {
-        self & Constants::get_u160_max()
-    }
+  fn as_u160(&self) -> U160 {
+    self & Constants::get_u160_max()
+  }
 }
 
 ////////////////////////////////////////////
 
 pub trait AsI160 {
-    fn as_i160(self) -> I160;
+  fn as_i160(&self) -> I160;
 }
 
 impl AsI160 for I256 {
-    fn as_i160(self) -> I160 {
-        let x = self & Constants::get_u160_max().as_i256();
-        if (x & (I256::ONE << 159)) == I256::ZERO {
-            x as I160
-        } else {
-            (x | (!Constants::get_u160_max().as_i256())) as I160
-        }
+  fn as_i160(&self) -> I160 {
+    let x = self & Constants::get_u160_max().as_i256();
+    if (x & (I256::ONE << 159)) == I256::ZERO {
+      x as I160
+    } else {
+      (x | (!Constants::get_u160_max().as_i256())) as I160
     }
+  }
 }
 
 pub trait Num160Trait {
