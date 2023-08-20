@@ -1,10 +1,9 @@
-use ethnum::{I256, U256};
+use ethnum::I256;
 
-use super::fixed_point_96;
-use super::full_math::{FullMath, MathOps};
-use super::num160::U160;
-use crate::full_math::FullMathTrait;
-use crate::num160::{AsU160, Num160Trait};
+use crate::fixed_point_96;
+use crate::full_math::{FullMath, FullMathTrait, MathOps};
+use crate::num160::{AsU160, Num160Trait, U160};
+use crate::num256::{AsI256, U256};
 
 /// @notice Gets the next sqrt price given a delta of token0
 /// @dev Always rounds up, because in the exact output case (increasing price) we need to move the price at least
@@ -24,11 +23,11 @@ pub fn get_next_sqrt_price_from_amount0_rounding_up(
     add: bool,
 ) -> U160 {
     // we short circuit amount == 0 because the result is otherwise not guaranteed to equal the input price
-    if amount == U256::ZERO {
+    if amount == U256::zero() {
         return sqrt_px96;
     }
 
-    let numerator1 = U256::new(liquidity) << fixed_point_96::RESOLUTION;
+    let numerator1 = U256::from(liquidity) << fixed_point_96::RESOLUTION;
 
     if add {
         if let Some(product) = amount.checked_mul(sqrt_px96) {
@@ -73,21 +72,21 @@ pub fn get_next_sqrt_price_from_amount1_rounding_down(
     // if we're adding (subtracting), rounding down requires rounding the quotient down (up)
     // in both cases, avoid a mulDiv for most inputs
     if add {
-        let quotient = if amount <= (U256::ONE << 160) - U256::ONE {
+        let quotient = if amount <= (U256::one() << 160) - U256::one() {
             (amount << fixed_point_96::RESOLUTION) / liquidity
         } else {
-            FullMath::mul_div(amount, fixed_point_96::get_q96(), U256::new(liquidity))
+            FullMath::mul_div(amount, fixed_point_96::get_q96(), U256::from(liquidity))
         };
 
         (sqrt_px96.add160(quotient) as U160).as_u160()
     } else {
-        let quotient = if amount <= (U256::ONE << 160) - U256::ONE {
+        let quotient = if amount <= (U256::one() << 160) - U256::one() {
             FullMath::unsafe_div_rounding_up(
                 amount << fixed_point_96::RESOLUTION,
-                U256::new(liquidity),
+                U256::from(liquidity),
             )
         } else {
-            FullMath::mul_div_rounding_up(amount, fixed_point_96::get_q96(), U256::new(liquidity))
+            FullMath::mul_div_rounding_up(amount, fixed_point_96::get_q96(), U256::from(liquidity))
         };
 
         if sqrt_px96 > quotient {
@@ -112,7 +111,7 @@ pub fn get_next_sqrt_price_from_input(
     amount_in: U256,
     zero_for_one: bool,
 ) -> U160 {
-    assert!(sqrt_px96 > U160::ZERO && liquidity > 0);
+    assert!(sqrt_px96 > U160::zero() && liquidity > 0);
 
     if zero_for_one {
         get_next_sqrt_price_from_amount0_rounding_up(sqrt_px96, liquidity, amount_in, true)
@@ -134,7 +133,7 @@ pub fn get_next_sqrt_price_from_output(
     amount_out: U256,
     zero_for_one: bool,
 ) -> U160 {
-    assert!(sqrt_px96 > U160::ZERO && liquidity > 0);
+    assert!(sqrt_px96 > U160::zero() && liquidity > 0);
 
     if zero_for_one {
         get_next_sqrt_price_from_amount1_rounding_down(sqrt_px96, liquidity, amount_out, false)
@@ -163,10 +162,10 @@ pub fn get_amount0_delta(
         std::mem::swap(&mut sqrt_ratio_a_x96, &mut sqrt_ratio_b_x96);
     }
 
-    let numerator1 = U256::new(liquidity) << fixed_point_96::RESOLUTION;
+    let numerator1 = U256::from(liquidity) << fixed_point_96::RESOLUTION;
     let numerator2 = sqrt_ratio_b_x96.sub(sqrt_ratio_a_x96);
 
-    assert!(sqrt_ratio_a_x96 > U160::ZERO);
+    assert!(sqrt_ratio_a_x96 > U160::zero());
 
     if round_up {
         FullMath::unsafe_div_rounding_up(
@@ -199,13 +198,13 @@ pub fn get_amount1_delta(
 
     if round_up {
         FullMath::mul_div_rounding_up(
-            U256::new(liquidity),
+            U256::from(liquidity),
             sqrt_ratio_b_x96.sub(sqrt_ratio_a_x96),
             fixed_point_96::get_q96(),
         )
     } else {
         FullMath::mul_div(
-            U256::new(liquidity),
+            U256::from(liquidity),
             sqrt_ratio_b_x96.sub(sqrt_ratio_a_x96),
             fixed_point_96::get_q96(),
         )
@@ -274,9 +273,9 @@ mod tests {
         // Fails if price is zero
         assert!(panic::catch_unwind(|| {
             get_next_sqrt_price_from_input(
-                U160::new(0),
+                U160::from(0),
                 0 as u128,
-                MathOps::div(utils::expand_to_18_decimals(1), U256::new(10)),
+                MathOps::div(utils::expand_to_18_decimals(1), U256::from(10)),
                 false,
             );
         })
@@ -285,9 +284,9 @@ mod tests {
         // Fails if liquidity is zero
         assert!(panic::catch_unwind(|| {
             get_next_sqrt_price_from_input(
-                U160::ONE,
+                U160::one(),
                 0 as u128,
-                MathOps::div(utils::expand_to_18_decimals(1), U256::new(10)),
+                MathOps::div(utils::expand_to_18_decimals(1), U256::from(10)),
                 true,
             );
         })
@@ -295,9 +294,12 @@ mod tests {
 
         // Fails if input amount overflows the price
         {
-            let price = U256::new(2).pow(160).sub(U256::ONE).as_u160();
+            let price = U256::from(2)
+                .pow(U256::from(160))
+                .sub(U256::one())
+                .as_u160();
             let liquidity = 1024;
-            let amount_in = U256::new(1024);
+            let amount_in = U256::from(1024);
             assert!(panic::catch_unwind(|| {
                 get_next_sqrt_price_from_input(price, liquidity, amount_in, false);
             })

@@ -10,16 +10,16 @@ mod helper;
 #[tokio::test]
 async fn test_mint_properly() -> anyhow::Result<()> {
     let worker = workspaces::sandbox().await?;
-    println!("Setuping...");
+    println!("Initializing...");
     let context = init(&worker).await?;
-    let liqudity_provider = context.deployer;
+    let liquidity_provider = context.deployer;
     println!("✅ Setup done");
 
     // deposit token 0 & 1 into deployer
     let token_0_amount = U128::from(100);
     let token_1_amount = U128::from(500_000);
     println!("Depositing token 0 & 1 into deployer...");
-    liqudity_provider
+    liquidity_provider
         .call(context.token_0_contract.id(), "ft_transfer_call")
         .args_json((
             context.manager_contract.id(),
@@ -32,7 +32,7 @@ async fn test_mint_properly() -> anyhow::Result<()> {
         .transact()
         .await?
         .into_result()?;
-    liqudity_provider
+    liquidity_provider
         .call(context.token_1_contract.id(), "ft_transfer_call")
         .args_json((
             context.manager_contract.id(),
@@ -49,14 +49,14 @@ async fn test_mint_properly() -> anyhow::Result<()> {
     let deposited_token_0 = context
         .manager_contract
         .call("get_deposited_token")
-        .args_json((liqudity_provider.id(), context.token_0_contract.id()))
+        .args_json((liquidity_provider.id(), context.token_0_contract.id()))
         .view()
         .await?
         .json::<U128>()?;
     let deposited_token_1 = context
         .manager_contract
         .call("get_deposited_token")
-        .args_json((liqudity_provider.id(), context.token_1_contract.id()))
+        .args_json((liquidity_provider.id(), context.token_1_contract.id()))
         .view()
         .await?
         .json::<U128>()?;
@@ -75,7 +75,7 @@ async fn test_mint_properly() -> anyhow::Result<()> {
         amount_0_min: U128::from(0),
         amount_1_min: U128::from(0),
     };
-    let res = liqudity_provider
+    let res = liquidity_provider
         .call(context.manager_contract.id(), "mint")
         .args_json(json!({ "params": mint_params }))
         .max_gas()

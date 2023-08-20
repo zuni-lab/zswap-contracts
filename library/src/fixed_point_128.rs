@@ -1,10 +1,8 @@
-use ethnum::U256;
-use std::str::FromStr;
+use crate::num256::U256;
 
 pub const RESOLUTION: u8 = 128;
-
 pub fn get_q128() -> U256 {
-  U256::from_str("340282366920938463463374607431768211456").unwrap()
+    U256::from(2).pow(U256::from(128))
 }
 
 //

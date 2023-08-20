@@ -1,10 +1,7 @@
-use ethnum::U256;
-
-use super::num160::U160;
-use crate::full_math::FullMathTrait;
-
-use super::fixed_point_96;
-use super::full_math::{FullMath, MathOps};
+use crate::fixed_point_96;
+use crate::full_math::{FullMath, FullMathTrait, MathOps};
+use crate::num160::U160;
+use crate::num256::U256;
 
 /// @notice Add a signed liquidity delta to liquidity and revert if it overflows or underflows
 /// @param x The liquidity before change

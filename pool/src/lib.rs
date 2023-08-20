@@ -4,9 +4,11 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, near_bindgen, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault, Promise,
+    env, log, near_bindgen, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault, Promise,
 };
-use zswap_math_library::tick_math;
+use zswap_math_library::position::PositionInfo;
+use zswap_math_library::tick::TickInfo;
+use zswap_math_library::tick_math::TickConstants;
 
 use crate::core_trait::CoreZswapPool;
 use crate::error::*;
@@ -19,10 +21,6 @@ mod error;
 mod internal;
 mod manager;
 pub mod utils;
-
-// TODO: remove this
-struct Tick;
-struct Position;
 
 // Define the contract structure
 #[near_bindgen]
@@ -40,10 +38,9 @@ pub struct Contract {
     slot_0: Slot0,
     liquidity: u128,
 
-    //TODO: import Tick and Position from lib
-    ticks: LookupMap<i32, Tick>, // import from `lib`
+    ticks: LookupMap<i32, TickInfo>,
     tick_bitmap: LookupMap<i16, U256>,
-    positions: LookupMap<CryptoHash, Position>, // import from `lib`
+    positions: LookupMap<CryptoHash, PositionInfo>,
 }
 
 /// Helper structure for keys of the persistent collections.
@@ -119,9 +116,10 @@ impl CoreZswapPool for Contract {
         amount: U128,
         data: Vec<u8>,
     ) -> Promise {
+        log!("Calling `mint()` in `ZswapPool`...");
         let check1 = lower_tick >= upper_tick;
-        let check2 = lower_tick < tick_math::TickConstants::MIN_TICK;
-        let check3 = upper_tick > tick_math::TickConstants::MAX_TICK;
+        let check2 = lower_tick < TickConstants::MIN_TICK;
+        let check3 = upper_tick > TickConstants::MAX_TICK;
         if check1 || check2 || check3 {
             env::panic_str(INVALID_TICK_RANGE);
         }

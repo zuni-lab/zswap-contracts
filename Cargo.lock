@@ -3470,6 +3470,7 @@ dependencies = [
  "cargo-husky",
  "ethnum",
  "near-sdk",
+ "uint",
 ]
 
 [[package]]
