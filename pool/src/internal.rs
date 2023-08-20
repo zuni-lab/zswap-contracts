@@ -19,7 +19,12 @@ impl Contract {
         upper_tick: i32,
         liquidity_delta: i128,
     ) -> (String, i128, i128) {
-        // let position = self.positions.get(&address).unwrap_or_default();
+        // let position_key = env::keccak256(&[1, 2, 3]);
+        // let position = self.positions.get(&position_key.into()).unwrap_or_default();
+        // let current_tick = self.slot_0.tick;
+        // let tick_info = self.ticks.get(&current_tick).unwrap_or_default();
+        // tick_info.update();
+
         let return_message = format!(
             "modify_position({}, {}, {}, {})",
             address, lower_tick, upper_tick, liquidity_delta

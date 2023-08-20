@@ -5,7 +5,6 @@ use crate::num160::U160;
 use crate::num24::U24;
 use crate::num256::{ToU256, U256};
 use crate::sqrt_price_math;
-use ethnum::{AsU256, I256, U256};
 
 /// @notice Computes the result of swapping some amount in, or amount out, given the parameters of the swap
 /// @dev The fee, plus the amount in, will never exceed the amount remaining if the swap's `amountSpecified` is positive
@@ -159,12 +158,15 @@ pub fn compute_swap_step(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use crate::full_math::{FullMath, FullMathTrait, MathOps};
-    use crate::num24::{AsU24, U24};
+    use crate::num24::AsU24;
+    use crate::num256::AsI256;
     use crate::sqrt_price_math::{get_next_sqrt_price_from_input, get_next_sqrt_price_from_output};
     use crate::swap_math::compute_swap_step;
     use crate::utils::{encode_price_sqrt_u128, expand_to_18_decimals};
-    use ethnum::{I256, U256};
+
+    use ethnum::I256;
     use std::ops::Sub;
     use std::str::FromStr;
 
@@ -182,15 +184,15 @@ mod tests {
             let (sqrt_q, amount_in, amount_out, fee_amount) =
                 compute_swap_step(price, price_target, liquidity.as_u128(), amount, fee);
 
-            assert_eq!(amount_in, U256::new(9975124224178055));
-            assert_eq!(fee_amount, U256::new(5988667735148));
-            assert_eq!(amount_out, U256::new(9925619580021728));
+            assert_eq!(amount_in, U256::from(9975124224178055 as u128));
+            assert_eq!(fee_amount, U256::from(5988667735148 as u128));
+            assert_eq!(amount_out, U256::from(9925619580021728 as u128));
             assert!(amount_in.add(fee_amount).as_i256() < amount);
 
             let price_after_whole_input_amount = get_next_sqrt_price_from_input(
                 price,
                 liquidity.as_u128(),
-                amount.as_u256(),
+                amount.to_u256(),
                 zero_for_one,
             );
 
@@ -212,15 +214,15 @@ mod tests {
             let (sqrt_q, amount_in, amount_out, fee_amount) =
                 compute_swap_step(price, price_target, liquidity.as_u128(), amount, fee);
 
-            assert_eq!(amount_in, U256::new(9975124224178055));
-            assert_eq!(fee_amount, U256::new(5988667735148));
-            assert_eq!(amount_out, U256::new(9925619580021728));
-            assert!(amount_out < (amount * I256::from(-1)).as_u256());
+            assert_eq!(amount_in, U256::from(9975124224178055 as u128));
+            assert_eq!(fee_amount, U256::from(5988667735148 as u128));
+            assert_eq!(amount_out, U256::from(9925619580021728 as u128));
+            assert!(amount_out < (amount * I256::from(-1)).to_u256());
 
             let price_after_whole_output_amount = get_next_sqrt_price_from_output(
                 price,
                 liquidity.as_u128(),
-                (amount * I256::from(-1)).as_u256(),
+                (amount * I256::from(-1)).to_u256(),
                 zero_for_one,
             );
 
@@ -239,15 +241,15 @@ mod tests {
             let (sqrt_q, amount_in, amount_out, fee_amount) =
                 compute_swap_step(price, price_target, liquidity.as_u128(), amount, fee);
 
-            assert_eq!(amount_in, U256::new(999400000000000000));
-            assert_eq!(fee_amount, U256::new(600000000000000));
-            assert_eq!(amount_out, U256::new(666399946655997866));
-            assert_eq!(amount_in.add(fee_amount), amount.as_u256());
+            assert_eq!(amount_in, U256::from(999400000000000000 as u128));
+            assert_eq!(fee_amount, U256::from(600000000000000 as u128));
+            assert_eq!(amount_out, U256::from(666399946655997866 as u128));
+            assert_eq!(amount_in.add(fee_amount), amount.to_u256());
 
             let price_after_whole_input_amount_less_fee = get_next_sqrt_price_from_input(
                 price,
                 liquidity.as_u128(),
-                amount.sub(fee_amount.as_i256()).as_u256(),
+                amount.sub(fee_amount.as_i256()).to_u256(),
                 zero_for_one,
             );
 
@@ -266,14 +268,14 @@ mod tests {
             let (sqrt_q, amount_in, amount_out, fee_amount) =
                 compute_swap_step(price, price_target, liquidity.as_u128(), amount, fee);
 
-            assert_eq!(amount_in, U256::new(2000000000000000000));
-            assert_eq!(fee_amount, U256::new(1200720432259356));
-            assert_eq!(amount_out, (amount * I256::new(-1)).as_u256());
+            assert_eq!(amount_in, U256::from(2000000000000000000 as u128));
+            assert_eq!(fee_amount, U256::from(1200720432259356 as u128));
+            assert_eq!(amount_out, (amount * I256::from(-1)).to_u256());
 
             let price_after_whole_output_amount = get_next_sqrt_price_from_output(
                 price,
                 liquidity.as_u128(),
-                (amount * I256::from(-1)).as_u256(),
+                (amount * I256::from(-1)).to_u256(),
                 zero_for_one,
             );
 
@@ -282,29 +284,29 @@ mod tests {
         }
         // amount out is capped at the desired amount out
         {
-            let price = U256::from_str("417332158212080721273783715441582").unwrap();
-            let price_target = U256::from_str("1452870262520218020823638996").unwrap();
-            let liquidity = U256::from_str("159344665391607089467575320103").unwrap();
+            let price = U256::from_dec_str("417332158212080721273783715441582").unwrap();
+            let price_target = U256::from_dec_str("1452870262520218020823638996").unwrap();
+            let liquidity = U256::from_dec_str("159344665391607089467575320103").unwrap();
             let amount = I256::new(-1);
             let fee = 1_u128.as_u24();
 
             let (sqrt_q, amount_in, amount_out, fee_amount) =
                 compute_swap_step(price, price_target, liquidity.as_u128(), amount, fee);
 
-            assert_eq!(amount_in, U256::new(1));
-            assert_eq!(fee_amount, U256::new(1));
-            assert_eq!(amount_out, U256::new(1));
+            assert_eq!(amount_in, U256::one());
+            assert_eq!(fee_amount, U256::one());
+            assert_eq!(amount_out, U256::one());
             assert_eq!(
                 sqrt_q,
-                U256::from_str("417332158212080721273783715441581").unwrap()
+                U256::from_dec_str("417332158212080721273783715441581").unwrap()
             );
         }
 
         // target price of 1 uses partial input amount
         {
-            let price = U256::from_str("2").unwrap();
-            let price_target = U256::from_str("1").unwrap();
-            let liquidity = U256::from_str("1").unwrap();
+            let price = U256::from_dec_str("2").unwrap();
+            let price_target = U256::from_dec_str("1").unwrap();
+            let liquidity = U256::from_dec_str("1").unwrap();
             let amount = I256::from_str("3915081100057732413702495386755767").unwrap();
             let fee = 1_u128.as_u24();
 
@@ -313,41 +315,41 @@ mod tests {
 
             assert_eq!(
                 amount_in,
-                U256::from_str("39614081257132168796771975168").unwrap()
+                U256::from_dec_str("39614081257132168796771975168").unwrap()
             );
             assert_eq!(
                 fee_amount,
-                U256::from_str("39614120871253040049813").unwrap()
+                U256::from_dec_str("39614120871253040049813").unwrap()
             );
             assert!(
                 amount_in.add(fee_amount)
-                    <= U256::from_str("3915081100057732413702495386755767").unwrap()
+                    <= U256::from_dec_str("3915081100057732413702495386755767").unwrap()
             );
-            assert_eq!(amount_out, U256::from_str("0").unwrap());
-            assert_eq!(sqrt_q, U256::from_str("1").unwrap());
+            assert_eq!(amount_out, U256::from_dec_str("0").unwrap());
+            assert_eq!(sqrt_q, U256::from_dec_str("1").unwrap());
         }
 
         // entire input amount taken as fee
         {
-            let price = U256::from_str("2413").unwrap();
-            let price_target = U256::from_str("79887613182836312").unwrap();
-            let liquidity = U256::from_str("1985041575832132834610021537970").unwrap();
+            let price = U256::from_dec_str("2413").unwrap();
+            let price_target = U256::from_dec_str("79887613182836312").unwrap();
+            let liquidity = U256::from_dec_str("1985041575832132834610021537970").unwrap();
             let amount = I256::from_str("10").unwrap();
             let fee = 1872_u128.as_u24();
 
             let (sqrt_q, amount_in, amount_out, fee_amount) =
                 compute_swap_step(price, price_target, liquidity.as_u128(), amount, fee);
-            assert_eq!(amount_in, U256::from_str("0").unwrap());
-            assert_eq!(fee_amount, U256::from_str("10").unwrap());
-            assert_eq!(amount_out, U256::from_str("0").unwrap());
-            assert_eq!(sqrt_q, U256::from_str("2413").unwrap());
+            assert_eq!(amount_in, U256::from_dec_str("0").unwrap());
+            assert_eq!(fee_amount, U256::from_dec_str("10").unwrap());
+            assert_eq!(amount_out, U256::from_dec_str("0").unwrap());
+            assert_eq!(sqrt_q, U256::from_dec_str("2413").unwrap());
         }
 
         // handles intermediate insufficient liquidity in zero for one exact output case
         {
-            let sqrt_p = U256::from_str("20282409603651670423947251286016").unwrap();
-            let sqrt_p_target = FullMath::mul_div(sqrt_p, U256::new(11), U256::new(10));
-            let liquidity = U256::new(1024);
+            let sqrt_p = U256::from_dec_str("20282409603651670423947251286016").unwrap();
+            let sqrt_p_target = FullMath::mul_div(sqrt_p, U256::from(11), U256::from(10));
+            let liquidity = U256::from(1024);
             // virtual reserves of one are only 4
             // https://www.wolframalpha.com/input/?i=1024+%2F+%2820282409603651670423947251286016+%2F+2**96%29
             let amount_remaining = I256::from(-4);
@@ -361,17 +363,17 @@ mod tests {
                 fee_pips,
             );
 
-            assert_eq!(amount_out, U256::from_str("0").unwrap());
+            assert_eq!(amount_out, U256::from_dec_str("0").unwrap());
             assert_eq!(sqrt_q, sqrt_p_target);
-            assert_eq!(amount_in, U256::from_str("26215").unwrap());
-            assert_eq!(fee_amount, U256::from_str("79").unwrap());
+            assert_eq!(amount_in, U256::from_dec_str("26215").unwrap());
+            assert_eq!(fee_amount, U256::from_dec_str("79").unwrap());
         }
 
         // handles intermediate insufficient liquidity in one for zero exact output case
         {
-            let sqrt_p = U256::from_str("20282409603651670423947251286016").unwrap();
-            let sqrt_p_target = FullMath::mul_div(sqrt_p, U256::new(9), U256::new(10));
-            let liquidity = U256::new(1024);
+            let sqrt_p = U256::from_dec_str("20282409603651670423947251286016").unwrap();
+            let sqrt_p_target = FullMath::mul_div(sqrt_p, U256::from(9), U256::from(10));
+            let liquidity = U256::from(1024);
             // virtual reserves of zero are only 262144
             // https://www.wolframalpha.com/input/?i=1024+*+%2820282409603651670423947251286016+%2F+2**96%29
             let amount_remaining = I256::from(-263000);
@@ -385,10 +387,10 @@ mod tests {
                 fee_pips,
             );
 
-            assert_eq!(amount_out, U256::from_str("26214").unwrap());
+            assert_eq!(amount_out, U256::from_dec_str("26214").unwrap());
             assert_eq!(sqrt_q, sqrt_p_target);
-            assert_eq!(amount_in, U256::from_str("1").unwrap());
-            assert_eq!(fee_amount, U256::from_str("1").unwrap());
+            assert_eq!(amount_in, U256::from_dec_str("1").unwrap());
+            assert_eq!(fee_amount, U256::from_dec_str("1").unwrap());
         }
     }
 }

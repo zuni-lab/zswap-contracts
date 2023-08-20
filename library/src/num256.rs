@@ -24,6 +24,6 @@ pub trait ToU256 {
 
 impl ToU256 for I256 {
     fn to_u256(&self) -> U256 {
-        U256::from_str_radix(&self.to_string(), 10).unwrap()
+        U256::from_str_radix(&self.abs().to_string(), 10).unwrap()
     }
 }
