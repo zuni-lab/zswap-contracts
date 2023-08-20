@@ -22,9 +22,9 @@ pub trait CoreZswapPool {
         data: Vec<u8>,
     );
 
-    fn burn(&mut self, from: AccountId, amount: u128);
+    // fn burn(&mut self, from: AccountId, amount: u128);
 
-    fn collect(&mut self, token_in: AccountId);
+    // fn collect(&mut self, token_in: AccountId);
 
     fn get_slot_0(&self) -> Slot0;
 }

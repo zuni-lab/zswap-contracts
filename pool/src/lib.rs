@@ -7,7 +7,7 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::{
-    env, log, near_bindgen, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault, Promise,
+    env, near_bindgen, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault, Promise,
 };
 
 use crate::account::Account;
@@ -163,11 +163,7 @@ impl CoreZswapPool for Contract {
             )
     }
 
-    #[payable]
-    fn burn(&mut self, from: AccountId, amount: u128) {
-        todo!("burn");
-    }
-
+    #[allow(unused)]
     #[payable]
     fn swap(
         &mut self,
@@ -178,11 +174,6 @@ impl CoreZswapPool for Contract {
         data: Vec<u8>,
     ) {
         todo!("swap");
-    }
-
-    #[payable]
-    fn collect(&mut self, token_in: AccountId) {
-        todo!("collect");
     }
 
     fn get_slot_0(&self) -> Slot0 {

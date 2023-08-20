@@ -47,6 +47,7 @@ impl PoolCallback for Contract {
         [U128::from(amount_0), U128::from(amount_1)]
     }
 
+    #[allow(unused)]
     #[private]
     fn swap_callback_post_collected_token(
         #[callback_result] amount: Result<U128, PromiseError>,

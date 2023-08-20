@@ -12,6 +12,7 @@ pub struct Slot0 {
     pub tick: i32,
 }
 
+#[allow(unused)]
 pub struct SwapState {
     amount_specified_remaining: u128,
     amount_calculated: u128,
@@ -21,6 +22,7 @@ pub struct SwapState {
     liquidity: u128,
 }
 
+#[allow(unused)]
 pub struct StepState {
     sqrt_price_start_x96: u128,
     next_tick: i32,

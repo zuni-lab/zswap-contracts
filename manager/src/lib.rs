@@ -1,4 +1,4 @@
-use ethnum::{AsU256, U256};
+use ethnum::AsU256;
 use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_contract_standards::non_fungible_token::NonFungibleToken;
 // Find all our documentation at https://docs.near.org
@@ -11,7 +11,7 @@ use near_sdk::{
 use pool::{ext_zswap_pool, Slot0};
 use utils::{SwapCallbackData, SwapSingleParams};
 use zswap_math_library::liquidity_math;
-use zswap_math_library::num160::To160;
+use zswap_math_library::num160::AsU160;
 use zswap_math_library::tick_math::{self};
 
 use crate::ft_account::Account;
@@ -32,7 +32,7 @@ mod views;
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     factory: AccountId,
-    // nft: NonFungibleToken,
+    nft: NonFungibleToken,
     accounts: LookupMap<AccountId, Account>,
 }
 
@@ -49,11 +49,11 @@ pub(crate) enum StorageKey {
         spender_id: AccountId,
         token_id: AccountId,
     },
-    // NonFungibleToken,
+    NonFungibleToken,
     // Metadata,
-    // TokenMetadata,
-    // Enumeration,
-    // Approval,
+    TokenMetadata,
+    Enumeration,
+    Approval,
 }
 
 // Implement the contract structure
@@ -61,20 +61,21 @@ pub(crate) enum StorageKey {
 impl Contract {
     #[init]
     pub fn new(factory: AccountId) -> Self {
-        // let nft = NonFungibleToken::new(
-        //     StorageKey::NonFungibleToken,
-        //     env::current_account_id(),
-        //     Some(StorageKey::TokenMetadata),
-        //     Some(StorageKey::Enumeration),
-        //     Some(StorageKey::Approval),
-        // );
+        let nft = NonFungibleToken::new(
+            StorageKey::NonFungibleToken,
+            env::current_account_id(),
+            Some(StorageKey::TokenMetadata),
+            Some(StorageKey::Enumeration),
+            Some(StorageKey::Approval),
+        );
         Self {
-            // nft,
+            nft,
             factory,
             accounts: LookupMap::new(StorageKey::Accounts),
         }
     }
 
+    #[allow(unused)]
     pub fn get_position(
         &self,
         token_1: AccountId,
@@ -113,6 +114,7 @@ impl Contract {
         )
     }
 
+    #[allow(unused)]
     #[payable]
     pub fn swap(
         &mut self,
@@ -162,9 +164,9 @@ impl Contract {
         let sqrt_price_lower_x96 = tick_math::get_sqrt_ratio_at_tick(params.lower_tick);
         let sqrt_price_upper_x96 = tick_math::get_sqrt_ratio_at_tick(params.upper_tick);
         let liquidity = liquidity_math::get_liquidity_for_amounts(
-            sqrt_price_x96.0.as_u256().to160bit(),
-            sqrt_price_lower_x96.to160bit(),
-            sqrt_price_upper_x96.to160bit(),
+            sqrt_price_x96.0.as_u256().as_u160(),
+            sqrt_price_lower_x96.as_u160(),
+            sqrt_price_upper_x96.as_u160(),
             params.amount_0_desired.0.as_u256(),
             params.amount_1_desired.0.as_u256(),
         );

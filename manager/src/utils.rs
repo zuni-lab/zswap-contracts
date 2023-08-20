@@ -35,6 +35,7 @@ pub struct SwapSingleParams {
     pub sqrt_price_limit_x96: u128,
 }
 
+#[allow(unused)]
 pub struct SwapParams {
     tokens: Vec<AccountId>,
     fees: Vec<u32>,

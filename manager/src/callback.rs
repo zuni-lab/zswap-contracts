@@ -42,6 +42,7 @@ impl ManagerCallback for Contract {
         [amount_0, amount_1]
     }
 
+    #[allow(unused)]
     #[private]
     fn manager_swap_callback(
         amount_out_min: U128,
