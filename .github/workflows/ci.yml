@@ -1,43 +1,43 @@
-# name: Check Set-Up & Build
+name: Check Set-Up & Build
 
-# on:
-#   push:
-#     branches: [main]
-#   pull_request:
-#     branches: [main]
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
 
-# jobs:
-#   check:
-#     runs-on: ubuntu-latest
+jobs:
+  check:
+    runs-on: ubuntu-latest
 
-#     steps:
-#       - name: Check out code
-#         uses: actions/checkout@v3
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v3
 
-#       - name: Install Linux dependencies
-#         run: |
-#           echo "Installing Linux dependencies..."
-#           sudo apt-get install -y clang libssl-dev llvm libudev-dev protobuf-compiler
+      - name: Install Linux dependencies
+        run: |
+          echo "Installing Linux dependencies..."
+          sudo apt-get install -y clang libssl-dev llvm libudev-dev protobuf-compiler
 
-#       - name: Install Rust and Dependencies
-#         run: |
-#           echo "Installing Rust and dependencies..."
-#           rustup update stable --no-self-update
-#           rustup component add clippy
-#           cargo install cargo-cache
-#           cargo cache -a
+      - name: Install Rust and Dependencies
+        run: |
+          echo "Installing Rust and dependencies..."
+          rustup update stable --no-self-update
+          rustup component add clippy
+          cargo install cargo-cache
+          cargo cache -a
 
-#       - name: Lint
-#         run: |
-#           echo "Running Clippy linter..."
-#           cargo clippy --workspace --all-targets --all-features
+      - name: Lint
+        run: |
+          echo "Running Clippy linter..."
+          cargo clippy --workspace --all-targets --all-features
 
-#       - name: Test
-#         run: |
-#           echo "Running tests..."
-#           cargo test --workspace
+      - name: Test
+        run: |
+          echo "Running tests..."
+          cargo test --workspace
 
-#       - name: Check Build
-#         run: |
-#           echo "Checking build..."
-#           cargo check --workspace
+      - name: Check Build
+        run: |
+          echo "Checking build..."
+          cargo check --workspace
