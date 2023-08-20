@@ -1,0 +1,6 @@
+set -e
+
+echo 'Check rules for Rust code'
+cargo clippy
+echo 'Check tests'
+cargo test --all

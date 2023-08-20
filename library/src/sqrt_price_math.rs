@@ -40,9 +40,7 @@ pub fn get_next_sqrt_price_from_amount0_rounding_up(
                     .as_u160();
             }
         }
-
-        return FullMath::unsafe_div_rounding_up(numerator1, (numerator1 / sqrt_px96).add(amount))
-            .as_u160();
+        FullMath::unsafe_div_rounding_up(numerator1, (numerator1 / sqrt_px96).add(amount)).as_u160()
     } else {
         if let Some(product) = amount.checked_mul(sqrt_px96) {
             if numerator1 > product {
@@ -75,15 +73,15 @@ pub fn get_next_sqrt_price_from_amount1_rounding_down(
     // if we're adding (subtracting), rounding down requires rounding the quotient down (up)
     // in both cases, avoid a mulDiv for most inputs
     if add {
-        let quotient = if amount <= ((U256::ONE << 160) - U256::ONE) {
+        let quotient = if amount <= (U256::ONE << 160) - U256::ONE {
             (amount << fixed_point_96::RESOLUTION) / liquidity
         } else {
             FullMath::mul_div(amount, fixed_point_96::get_q96(), U256::new(liquidity))
         };
 
-        return (sqrt_px96.add160(quotient) as U160).as_u160();
+        (sqrt_px96.add160(quotient) as U160).as_u160()
     } else {
-        let quotient = if amount <= ((U256::ONE << 160) - U256::ONE) {
+        let quotient = if amount <= (U256::ONE << 160) - U256::ONE {
             FullMath::unsafe_div_rounding_up(
                 amount << fixed_point_96::RESOLUTION,
                 U256::new(liquidity),
@@ -94,7 +92,7 @@ pub fn get_next_sqrt_price_from_amount1_rounding_down(
 
         if sqrt_px96 > quotient {
             // always fits 160 bits
-            return (sqrt_px96.sub(quotient)).as_u160();
+            sqrt_px96.sub(quotient).as_u160()
         } else {
             panic!("Sqrt price must be greater than quotient");
         }
@@ -228,7 +226,7 @@ pub fn get_amount0_delta_signed(
         -get_amount0_delta(
             sqrt_ratio_a_x96,
             sqrt_ratio_b_x96,
-            (-liquidity) as u128,
+            -liquidity as u128,
             false,
         )
         .as_i256()
@@ -251,7 +249,7 @@ pub fn get_amount1_delta_signed(
         -get_amount1_delta(
             sqrt_ratio_a_x96,
             sqrt_ratio_b_x96,
-            (-liquidity) as u128,
+            -liquidity as u128,
             false,
         )
         .as_i256()
@@ -262,320 +260,403 @@ pub fn get_amount1_delta_signed(
 
 #[cfg(test)]
 mod tests {
-  use std::ops::Shl;
-  use crate::full_math::MathOps;
-  use super::*;
-  use std::panic;
-  use std::str::FromStr;
-  use ethnum::AsU256;
-  use crate::num160::AsU160;
-  use crate::utils;
+    use super::*;
+    use crate::full_math::MathOps;
+    use crate::num160::AsU160;
+    use crate::utils;
+    use ethnum::AsU256;
+    use std::ops::Shl;
+    use std::panic;
+    use std::str::FromStr;
 
-  #[test]
-  fn test_get_next_sqrt_price_from_input() {
-    // Fails if price is zero
-    assert!(panic::catch_unwind(|| {
-      get_next_sqrt_price_from_input(U160::new(0), 0 as u128, MathOps::div(utils::expand_to_18_decimals(1), U256::new(10)), false);
-    }).is_err());
+    #[test]
+    fn test_get_next_sqrt_price_from_input() {
+        // Fails if price is zero
+        assert!(panic::catch_unwind(|| {
+            get_next_sqrt_price_from_input(
+                U160::new(0),
+                0 as u128,
+                MathOps::div(utils::expand_to_18_decimals(1), U256::new(10)),
+                false,
+            );
+        })
+        .is_err());
 
-    // Fails if liquidity is zero
-    assert!(panic::catch_unwind(|| {
-      get_next_sqrt_price_from_input(U160::ONE, 0 as u128, MathOps::div(utils::expand_to_18_decimals(1), U256::new(10)), true);
-    }).is_err());
+        // Fails if liquidity is zero
+        assert!(panic::catch_unwind(|| {
+            get_next_sqrt_price_from_input(
+                U160::ONE,
+                0 as u128,
+                MathOps::div(utils::expand_to_18_decimals(1), U256::new(10)),
+                true,
+            );
+        })
+        .is_err());
 
-    // Fails if input amount overflows the price
-    {
-      let price = U256::new(2).pow(160).sub(U256::ONE).as_u160();
-      let liquidity = 1024;
-      let amount_in = U256::new(1024);
-      assert!(panic::catch_unwind(|| {
-        get_next_sqrt_price_from_input(price, liquidity, amount_in, false);
-      }).is_err());
+        // Fails if input amount overflows the price
+        {
+            let price = U256::new(2).pow(160).sub(U256::ONE).as_u160();
+            let liquidity = 1024;
+            let amount_in = U256::new(1024);
+            assert!(panic::catch_unwind(|| {
+                get_next_sqrt_price_from_input(price, liquidity, amount_in, false);
+            })
+            .is_err());
+        }
+
+        // Returns input price if amount in is zero and zeroForOne = true
+        {
+            let price = utils::encode_price_sqrt_u128(1, 1);
+            assert_eq!(
+                get_next_sqrt_price_from_input(
+                    price,
+                    MathOps::div(utils::expand_to_18_decimals(1), U256::new(10)).as_u128(),
+                    U256::ZERO,
+                    true
+                ),
+                price
+            );
+        }
+
+        // Returns input price if amount in is zero and zeroForOne = false
+        {
+            let price = utils::encode_price_sqrt_u128(1, 1);
+            assert_eq!(
+                get_next_sqrt_price_from_input(
+                    price,
+                    MathOps::div(utils::expand_to_18_decimals(1), U256::new(10)).as_u128(),
+                    U256::ZERO,
+                    false
+                ),
+                price
+            );
+        }
+
+        // Returns the minimum price for max inputs
+        {
+            let sqrt_p = U256::new(2).pow(160) - U256::ONE;
+            let liquidity = U256::MAX;
+            let max_amount_no_overflow = U256::MAX - liquidity.shl(U256::new(96)).div(sqrt_p);
+            assert_eq!(
+                get_next_sqrt_price_from_input(
+                    sqrt_p,
+                    liquidity.as_u128(),
+                    max_amount_no_overflow,
+                    true
+                ),
+                U256::ONE
+            );
+        }
+
+        // Input amount of 0.1 token1
+        {
+            let sqrt_q = get_next_sqrt_price_from_input(
+                utils::encode_price_sqrt_u128(1, 1),
+                utils::expand_to_18_decimals(1).as_u128(),
+                MathOps::div(utils::expand_to_18_decimals(1), U256::new(10)),
+                false,
+            );
+            assert_eq!(
+                sqrt_q,
+                U256::from_str("87150978765690771352898345369").unwrap()
+            );
+        }
+
+        // Input amount of 0.1 token0
+        {
+            let sqrt_q = get_next_sqrt_price_from_input(
+                utils::encode_price_sqrt_u128(1, 1),
+                utils::expand_to_18_decimals(1).as_u128(),
+                MathOps::div(utils::expand_to_18_decimals(1), U256::new(10)),
+                true,
+            );
+            assert_eq!(
+                sqrt_q,
+                U256::from_str("72025602285694852357767227579").unwrap()
+            );
+        }
+
+        // amountIn > type(uint96).max and zeroForOne = true
+        assert_eq!(
+            get_next_sqrt_price_from_input(
+                utils::encode_price_sqrt_u128(1, 1),
+                utils::expand_to_18_decimals(10).as_u128(),
+                U256::new(2).pow(100),
+                true,
+            ),
+            U256::from_str("624999999995069620").unwrap()
+        );
+
+        // Can return 1 with enough amountIn and zeroForOne = true
+        assert_eq!(
+            get_next_sqrt_price_from_input(
+                utils::encode_price_sqrt_u128(1, 1),
+                1,
+                U256::MAX.div(U256::new(2)),
+                true,
+            ),
+            U256::ONE
+        );
     }
 
-    // Returns input price if amount in is zero and zeroForOne = true
-    {
-      let price = utils::encode_price_sqrt_u128(1, 1);
-      assert_eq!(
-        get_next_sqrt_price_from_input(price, MathOps::div(utils::expand_to_18_decimals(1), U256::new(10)).as_u128(), U256::ZERO, true),
-        price
-      );
+    #[test]
+    fn test_get_next_sqrt_price_from_output() {
+        //fails if price is zero
+        assert!(panic::catch_unwind(|| {
+            get_next_sqrt_price_from_output(
+                U256::ZERO,
+                0,
+                utils::expand_to_18_decimals(1).div(10.as_u256()),
+                false,
+            );
+        })
+        .is_err());
+
+        // fails if liquidity is zero
+        assert!(panic::catch_unwind(|| {
+            get_next_sqrt_price_from_output(
+                U256::ONE,
+                0,
+                utils::expand_to_18_decimals(1).div(10.as_u256()),
+                true,
+            );
+        })
+        .is_err());
+
+        // fails if output amount is exactly the virtual reserves of token0
+        assert!(panic::catch_unwind(|| {
+            let price = U256::from_str("20282409603651670423947251286016").unwrap();
+            let liquidity = 1024 as u128;
+            let amount_out = U256::new(4);
+            get_next_sqrt_price_from_output(price, liquidity, amount_out, false);
+        })
+        .is_err());
+
+        // fails if output amount is greater than virtual reserves of token1
+        assert!(panic::catch_unwind(|| {
+            let price = U256::from_str("20282409603651670423947251286016").unwrap();
+            let liquidity = 1024 as u128;
+            let amount_out = U256::new(262145);
+            get_next_sqrt_price_from_output(price, liquidity, amount_out, true);
+        })
+        .is_err());
+
+        // fails if output amount is exactly the virtual reserves of token1
+        assert!(panic::catch_unwind(|| {
+            let price = U256::from_str("20282409603651670423947251286016").unwrap();
+            let liquidity = 1024 as u128;
+            let amount_out = U256::new(262144);
+            get_next_sqrt_price_from_output(price, liquidity, amount_out, true);
+        })
+        .is_err());
+
+        //succeeds if output amount is just less than the virtual reserves of token1
+        {
+            let price = U256::from_str("20282409603651670423947251286016").unwrap();
+            let liquidity = 1024 as u128;
+            let amount_out = U256::new(262143);
+            assert_eq!(
+                get_next_sqrt_price_from_output(price, liquidity, amount_out, true),
+                U160::from_str("77371252455336267181195264").unwrap()
+            );
+        }
+        // puzzling echidna test
+        assert!(panic::catch_unwind(|| {
+            let price = U256::from_str("20282409603651670423947251286016").unwrap();
+            let liquidity = 1024 as u128;
+            let amount_out = U256::new(4);
+            get_next_sqrt_price_from_output(price, liquidity, amount_out, false);
+        })
+        .is_err());
+
+        // returns input price if amount in is zero and zeroForOne = true
+        {
+            let price = utils::encode_price_sqrt_u128(1, 1);
+            let liquidity = utils::expand_to_18_decimals(1).div(U256::new(10)).as_u128();
+            let amount_out = U256::new(0);
+            assert_eq!(
+                get_next_sqrt_price_from_output(price, liquidity, amount_out, true),
+                price
+            );
+        }
+
+        // returns input price if amount in is zero and zeroForOne = false
+        {
+            let price = utils::encode_price_sqrt_u128(1, 1);
+            let liquidity = utils::expand_to_18_decimals(1).div(U256::new(10)).as_u128();
+            let amount_out = U256::new(0);
+            assert_eq!(
+                get_next_sqrt_price_from_output(price, liquidity, amount_out, false),
+                price
+            );
+        }
+
+        // returns input price if amount in is zero and zeroForOne = false
+        {
+            let price = utils::encode_price_sqrt_u128(1, 1);
+            let liquidity = utils::expand_to_18_decimals(1).as_u128();
+            let amount_out = utils::expand_to_18_decimals(1).div(U256::new(10));
+            assert_eq!(
+                get_next_sqrt_price_from_output(price, liquidity, amount_out, false),
+                U160::from_str("88031291682515930659493278152").unwrap()
+            );
+        }
+
+        // output amount of 0.1 token1
+        {
+            let price = utils::encode_price_sqrt_u128(1, 1);
+            let liquidity = utils::expand_to_18_decimals(1).as_u128();
+            let amount_out = utils::expand_to_18_decimals(1).div(U256::new(10));
+            assert_eq!(
+                get_next_sqrt_price_from_output(price, liquidity, amount_out, true),
+                U160::from_str("71305346262837903834189555302").unwrap()
+            );
+        }
+
+        // reverts if amountOut is impossible in zero for one direction
+        assert!(panic::catch_unwind(|| {
+            let price = utils::encode_price_sqrt_u128(1, 1);
+            let liquidity = 1 as u128;
+            let amount_out = U256::MAX;
+            get_next_sqrt_price_from_output(price, liquidity, amount_out, true);
+        })
+        .is_err());
+
+        // reverts if amountOut is impossible in one for zero direction
+        assert!(panic::catch_unwind(|| {
+            let price = utils::encode_price_sqrt_u128(1, 1);
+            let liquidity = 1 as u128;
+            let amount_out = U256::MAX;
+            get_next_sqrt_price_from_output(price, liquidity, amount_out, false);
+        })
+        .is_err());
     }
 
-    // Returns input price if amount in is zero and zeroForOne = false
-    {
-      let price = utils::encode_price_sqrt_u128(1, 1);
-      assert_eq!(
-        get_next_sqrt_price_from_input(price, MathOps::div(utils::expand_to_18_decimals(1), U256::new(10)).as_u128(), U256::ZERO, false),
-        price
-      );
+    #[test]
+    fn test_get_amount0_delta() {
+        // returns 0 if liquidity is 0
+        assert_eq!(
+            get_amount0_delta(
+                utils::encode_price_sqrt_u128(1, 1),
+                utils::encode_price_sqrt_u128(2, 1),
+                0,
+                true
+            ),
+            U256::ZERO
+        );
+
+        // returns 0 if prices are equal
+        assert_eq!(
+            get_amount0_delta(
+                utils::encode_price_sqrt_u128(1, 1),
+                utils::encode_price_sqrt_u128(1, 1),
+                0,
+                true
+            ),
+            U256::ZERO
+        );
+
+        {
+            // returns 0.1 amount0 for price of 1 to 1.21
+            let amount0 = get_amount0_delta(
+                utils::encode_price_sqrt_u128(1, 1),
+                utils::encode_price_sqrt_u128(121, 100),
+                utils::expand_to_18_decimals(1).as_u128(),
+                true,
+            );
+            assert_eq!(amount0, U256::new(90909090909090910));
+
+            let amount0_rounded_down = get_amount0_delta(
+                utils::encode_price_sqrt_u128(1, 1),
+                utils::encode_price_sqrt_u128(121, 100),
+                utils::expand_to_18_decimals(1).as_u128(),
+                false,
+            );
+            assert_eq!(amount0_rounded_down, amount0.sub(U256::ONE));
+        }
+
+        {
+            // works for prices that overflow
+            let amount0_up = get_amount0_delta(
+                utils::encode_price_sqrt_u128(2_u128.pow(90), 1),
+                utils::encode_price_sqrt_u128(2_u128.pow(96), 1),
+                utils::expand_to_18_decimals(1).as_u128(),
+                true,
+            );
+            let amount0_down = get_amount0_delta(
+                utils::encode_price_sqrt_u128(2_u128.pow(90), 1),
+                utils::encode_price_sqrt_u128(2_u128.pow(96), 1),
+                utils::expand_to_18_decimals(1).as_u128(),
+                false,
+            );
+
+            assert_eq!(amount0_up, amount0_down.add(U256::ONE));
+        }
+        // gas cost tests ...
     }
 
-    // Returns the minimum price for max inputs
-    {
-      let sqrt_p = U256::new(2).pow(160) - U256::ONE;
-      let liquidity = U256::MAX;
-      let max_amount_no_overflow = U256::MAX - liquidity.shl(U256::new(96)).div(sqrt_p);
-      assert_eq!(
-        get_next_sqrt_price_from_input(sqrt_p, liquidity.as_u128(), max_amount_no_overflow, true),
-        U256::ONE
-      );
+    #[test]
+    fn test_get_amount1_delta() {
+        // returns 0 if liquidity is 0
+        assert_eq!(
+            get_amount1_delta(
+                utils::encode_price_sqrt_u128(1, 1),
+                utils::encode_price_sqrt_u128(2, 1),
+                0,
+                true
+            ),
+            U256::ZERO
+        );
+
+        // returns 0 if prices are equal
+        assert_eq!(
+            get_amount0_delta(
+                utils::encode_price_sqrt_u128(1, 1),
+                utils::encode_price_sqrt_u128(1, 1),
+                0,
+                true
+            ),
+            U256::ZERO
+        );
+
+        // returns 0.1 amount1 for price of 1 to 1.21
+        {
+            let amount1 = get_amount1_delta(
+                utils::encode_price_sqrt_u128(1, 1),
+                utils::encode_price_sqrt_u128(121, 100),
+                utils::expand_to_18_decimals(1).as_u128(),
+                true,
+            );
+            assert_eq!(amount1, U256::new(100000000000000000));
+
+            let amount1_rounded_down = get_amount1_delta(
+                utils::encode_price_sqrt_u128(1, 1),
+                utils::encode_price_sqrt_u128(121, 100),
+                utils::expand_to_18_decimals(1).as_u128(),
+                false,
+            );
+            assert_eq!(amount1_rounded_down, amount1.sub(U256::ONE));
+        }
     }
 
-    // Input amount of 0.1 token1
-    {
-      let sqrt_q = get_next_sqrt_price_from_input(
-        utils::encode_price_sqrt_u128(1, 1),
-        utils::expand_to_18_decimals(1).as_u128(),
-        MathOps::div(utils::expand_to_18_decimals(1), U256::new(10)),
-        false,
-      );
-      assert_eq!(
-        sqrt_q,
-        U256::from_str("87150978765690771352898345369").unwrap()
-      );
+    #[test]
+    fn test_swap_computation() {
+        // sqrtP * sqrtQ overflows
+        // getNextSqrtPriceInvariants(1025574284609383690408304870162715216695788925244,50015962439936049619261659728067971248,406,true)
+        let sqrt_p = U256::from_str("1025574284609383690408304870162715216695788925244").unwrap();
+        let liquidity = 50015962439936049619261659728067971248_u128;
+        let zero_for_one = true;
+        let amount_in = U256::new(406);
+
+        let sqrt_q = get_next_sqrt_price_from_input(sqrt_p, liquidity, amount_in, zero_for_one);
+        assert_eq!(
+            sqrt_q,
+            U160::from_str("1025574284609383582644711336373707553698163132913").unwrap()
+        );
+
+        let amount0_delta = get_amount0_delta(sqrt_q, sqrt_p, liquidity as u128, true);
+        assert_eq!(amount0_delta, amount_in);
+
+        // The remaining assertions related to gas cost can also be adapted in a similar manner.
     }
-
-    // Input amount of 0.1 token0
-    {
-      let sqrt_q = get_next_sqrt_price_from_input(
-        utils::encode_price_sqrt_u128(1, 1),
-        utils::expand_to_18_decimals(1).as_u128(),
-        MathOps::div(utils::expand_to_18_decimals(1), U256::new(10)),
-        true,
-      );
-      assert_eq!(
-        sqrt_q,
-        U256::from_str("72025602285694852357767227579").unwrap()
-      );
-    }
-
-    // amountIn > type(uint96).max and zeroForOne = true
-    assert_eq!(
-      get_next_sqrt_price_from_input(
-        utils::encode_price_sqrt_u128(1, 1),
-        utils::expand_to_18_decimals(10).as_u128(),
-        U256::new(2).pow(100),
-        true,
-      ),
-      U256::from_str("624999999995069620").unwrap()
-    );
-
-    // Can return 1 with enough amountIn and zeroForOne = true
-    assert_eq!(
-      get_next_sqrt_price_from_input(
-        utils::encode_price_sqrt_u128(1, 1),
-        1,
-        U256::MAX.div(U256::new(2)),
-        true,
-      ),
-      U256::ONE
-    );
-  }
-
-  #[test]
-  fn test_get_next_sqrt_price_from_output() {
-    //fails if price is zero
-    assert!(panic::catch_unwind(|| {
-      get_next_sqrt_price_from_output(U256::ZERO, 0, utils::expand_to_18_decimals(1).div(10.as_u256()), false);
-    }).is_err());
-
-    // fails if liquidity is zero
-    assert!(panic::catch_unwind(|| {
-      get_next_sqrt_price_from_output(U256::ONE, 0, utils::expand_to_18_decimals(1).div(10.as_u256()), true);
-    }).is_err());
-
-    // fails if output amount is exactly the virtual reserves of token0
-    assert!(panic::catch_unwind(|| {
-      let price = U256::from_str("20282409603651670423947251286016").unwrap();
-      let liquidity = 1024 as u128;
-      let amount_out = U256::new(4);
-      get_next_sqrt_price_from_output(price, liquidity, amount_out, false);
-    }).is_err());
-
-    // fails if output amount is greater than virtual reserves of token1
-    assert!(panic::catch_unwind(|| {
-      let price = U256::from_str("20282409603651670423947251286016").unwrap();
-      let liquidity = 1024 as u128;
-      let amount_out = U256::new(262145);
-      get_next_sqrt_price_from_output(price, liquidity, amount_out, true);
-    }).is_err());
-
-    // fails if output amount is exactly the virtual reserves of token1
-    assert!(panic::catch_unwind(|| {
-      let price = U256::from_str("20282409603651670423947251286016").unwrap();
-      let liquidity = 1024 as u128;
-      let amount_out = U256::new(262144);
-      get_next_sqrt_price_from_output(price, liquidity, amount_out, true);
-    }).is_err());
-
-    //succeeds if output amount is just less than the virtual reserves of token1
-    {
-      let price = U256::from_str("20282409603651670423947251286016").unwrap();
-      let liquidity = 1024 as u128;
-      let amount_out = U256::new(262143);
-      assert_eq!(
-        get_next_sqrt_price_from_output(price, liquidity, amount_out, true),
-        U160::from_str("77371252455336267181195264").unwrap()
-      );
-    }
-    // puzzling echidna test
-    assert!(panic::catch_unwind(|| {
-      let price = U256::from_str("20282409603651670423947251286016").unwrap();
-      let liquidity = 1024 as u128;
-      let amount_out = U256::new(4);
-      get_next_sqrt_price_from_output(price, liquidity, amount_out, false);
-    }).is_err());
-
-    // returns input price if amount in is zero and zeroForOne = true
-    {
-      let price = utils::encode_price_sqrt_u128(1, 1);
-      let liquidity = utils::expand_to_18_decimals(1).div(U256::new(10)).as_u128();
-      let amount_out = U256::new(0);
-      assert_eq!(
-        get_next_sqrt_price_from_output(price, liquidity, amount_out, true),
-        price
-      );
-    }
-
-    // returns input price if amount in is zero and zeroForOne = false
-    {
-      let price = utils::encode_price_sqrt_u128(1, 1);
-      let liquidity = utils::expand_to_18_decimals(1).div(U256::new(10)).as_u128();
-      let amount_out = U256::new(0);
-      assert_eq!(
-        get_next_sqrt_price_from_output(price, liquidity, amount_out, false),
-        price
-      );
-    }
-
-    // returns input price if amount in is zero and zeroForOne = false
-    {
-      let price = utils::encode_price_sqrt_u128(1, 1);
-      let liquidity = utils::expand_to_18_decimals(1).as_u128();
-      let amount_out = utils::expand_to_18_decimals(1).div(U256::new(10));
-      assert_eq!(
-        get_next_sqrt_price_from_output(price, liquidity, amount_out, false),
-        U160::from_str("88031291682515930659493278152").unwrap()
-      );
-    }
-
-    // output amount of 0.1 token1
-    {
-      let price = utils::encode_price_sqrt_u128(1, 1);
-      let liquidity = utils::expand_to_18_decimals(1).as_u128();
-      let amount_out = utils::expand_to_18_decimals(1).div(U256::new(10));
-      assert_eq!(
-        get_next_sqrt_price_from_output(price, liquidity, amount_out, true),
-        U160::from_str("71305346262837903834189555302").unwrap()
-      );
-    }
-
-    // reverts if amountOut is impossible in zero for one direction
-    assert!(panic::catch_unwind(|| {
-      let price = utils::encode_price_sqrt_u128(1, 1);
-      let liquidity = 1 as u128;
-      let amount_out = U256::MAX;
-      get_next_sqrt_price_from_output(price, liquidity, amount_out, true);
-    }).is_err());
-
-    // reverts if amountOut is impossible in one for zero direction
-    assert!(panic::catch_unwind(|| {
-      let price = utils::encode_price_sqrt_u128(1, 1);
-      let liquidity = 1 as u128;
-      let amount_out = U256::MAX;
-      get_next_sqrt_price_from_output(price, liquidity, amount_out, false);
-    }).is_err());
-  }
-
-  #[test]
-  fn test_get_amount0_delta() {
-    // returns 0 if liquidity is 0
-    assert_eq!(get_amount0_delta(utils::encode_price_sqrt_u128(1, 1), utils::encode_price_sqrt_u128(2, 1), 0, true), U256::ZERO);
-
-    // returns 0 if prices are equal
-    assert_eq!(get_amount0_delta(utils::encode_price_sqrt_u128(1, 1), utils::encode_price_sqrt_u128(1, 1), 0, true), U256::ZERO);
-
-    {   // returns 0.1 amount0 for price of 1 to 1.21
-      let amount0 = get_amount0_delta(
-        utils::encode_price_sqrt_u128(1, 1),
-        utils::encode_price_sqrt_u128(121, 100),
-        utils::expand_to_18_decimals(1).as_u128(),
-        true,
-      );
-      assert_eq!(amount0, U256::new(90909090909090910));
-
-      let amount0_rounded_down = get_amount0_delta(
-        utils::encode_price_sqrt_u128(1, 1),
-        utils::encode_price_sqrt_u128(121, 100),
-        utils::expand_to_18_decimals(1).as_u128(),
-        false,
-      );
-      assert_eq!(amount0_rounded_down, amount0.sub(U256::ONE));
-    }
-
-    { // works for prices that overflow
-      let amount0_up = get_amount0_delta(
-        utils::encode_price_sqrt_u128(2_u128.pow(90), 1),
-        utils::encode_price_sqrt_u128(2_u128.pow(96), 1),
-        utils::expand_to_18_decimals(1).as_u128(),
-        true,
-      );
-      let amount0_down = get_amount0_delta(
-        utils::encode_price_sqrt_u128(2_u128.pow(90), 1),
-        utils::encode_price_sqrt_u128(2_u128.pow(96), 1),
-        utils::expand_to_18_decimals(1).as_u128(),
-        false,
-      );
-
-      assert_eq!(amount0_up, amount0_down.add(U256::ONE));
-    }
-    // gas cost tests ...
-  }
-
-  #[test]
-  fn test_get_amount1_delta() {
-    // returns 0 if liquidity is 0
-    assert_eq!(get_amount1_delta(utils::encode_price_sqrt_u128(1, 1), utils::encode_price_sqrt_u128(2, 1), 0, true), U256::ZERO);
-
-    // returns 0 if prices are equal
-    assert_eq!(get_amount0_delta(utils::encode_price_sqrt_u128(1, 1), utils::encode_price_sqrt_u128(1, 1), 0, true), U256::ZERO);
-
-    // returns 0.1 amount1 for price of 1 to 1.21
-    {
-      let amount1 = get_amount1_delta(
-        utils::encode_price_sqrt_u128(1, 1),
-        utils::encode_price_sqrt_u128(121, 100),
-        utils::expand_to_18_decimals(1).as_u128(),
-        true,
-      );
-      assert_eq!(amount1, U256::new(100000000000000000));
-
-      let amount1_rounded_down = get_amount1_delta(
-        utils::encode_price_sqrt_u128(1, 1),
-        utils::encode_price_sqrt_u128(121, 100),
-        utils::expand_to_18_decimals(1).as_u128(),
-        false,
-      );
-      assert_eq!(amount1_rounded_down, amount1.sub(U256::ONE));
-    }
-  }
-
-  #[test]
-  fn test_swap_computation() {
-    // sqrtP * sqrtQ overflows
-    // getNextSqrtPriceInvariants(1025574284609383690408304870162715216695788925244,50015962439936049619261659728067971248,406,true)
-    let sqrt_p = U256::from_str("1025574284609383690408304870162715216695788925244").unwrap();
-    let liquidity = 50015962439936049619261659728067971248_u128;
-    let zero_for_one = true;
-    let amount_in = U256::new(406);
-
-    let sqrt_q = get_next_sqrt_price_from_input(sqrt_p, liquidity, amount_in, zero_for_one);
-    assert_eq!(sqrt_q, U160::from_str("1025574284609383582644711336373707553698163132913").unwrap());
-
-    let amount0_delta = get_amount0_delta(sqrt_q, sqrt_p, liquidity as u128, true);
-    assert_eq!(amount0_delta, amount_in);
-
-    // The remaining assertions related to gas cost can also be adapted in a similar manner.
-  }
 }

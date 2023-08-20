@@ -17,34 +17,27 @@ pub trait MathOps {
 
 impl MathOps for U256 {
     fn gt(self, other: Self) -> Self {
-        if self > other {
-            U256::ONE
-        } else {
-            U256::ZERO
-        }
+        if self > other { U256::ONE } else { U256::ZERO }
     }
     fn lt(self, other: Self) -> Self {
-        if self < other {
-            U256::ONE
-        } else {
-            U256::ZERO
-        }
+        if self < other { U256::ONE } else { U256::ZERO }
     }
     fn sub(self, other: Self) -> Self {
         self.overflowing_sub(other).0
     }
     fn add(self, other: Self) -> Self {
-        return self.overflowing_add(other).0;
+        self.overflowing_add(other).0
     }
     fn div(self, other: Self) -> Self {
-        return self / other;
+        self / other
     }
     fn modulo(self, other: Self) -> Self {
-        return self % other;
+        self % other
     }
     fn mul(self, other: Self) -> Self {
-        return self.overflowing_mul(other).0;
-    } // https://locklessinc.com/articles/256bit_arithmetic/
+        self.overflowing_mul(other).0
+    }
+    // https://locklessinc.com/articles/256bit_arithmetic/
 
     // binary multiplication
     fn mulmod(self, other: Self, modulo: Self) -> Self {
@@ -58,24 +51,23 @@ impl MathOps for U256 {
                 result = MathOps::addmod(result, a, modulo);
             }
             a = MathOps::addmod(a, a, modulo);
-            b = b >> 1;
+            b >>= 1;
         }
 
-        return result;
+        result
     }
     fn unsafe_muldiv(self, other: Self, modulo: Self) -> Self {
-        return self * other / modulo;
+        (self * other) / modulo
     }
     fn addmod(self, other: Self, modulo: Self) -> Self {
         let a = self % modulo;
         let b = other % modulo;
         let remaining_a = modulo - a;
-        let res = if remaining_a <= b {
+        if remaining_a <= b {
             b - remaining_a
         } else {
             a + b
-        };
-        res
+        }
     }
 }
 
@@ -109,8 +101,10 @@ impl FullMathTrait for FullMath {
 
         let mm = MathOps::mulmod(a, b, !U256::ZERO);
         let mut prod0 = MathOps::mul(a, b);
-        let mut prod1 =
-            U256::overflowing_sub(U256::overflowing_sub(mm, prod0).0, MathOps::lt(mm, prod0)).0;
+        let mut prod1 = U256::overflowing_sub(
+            U256::overflowing_sub(mm, prod0).0,
+            MathOps::lt(mm, prod0)
+        ).0;
 
         // Handle non-overflow cases, 256 by 256 division
         if prod1 == 0 {
@@ -148,10 +142,7 @@ impl FullMathTrait for FullMath {
         // to flip `twos` such that it is 2**256 / twos.
         // If twos is zero, then it becomes one
 
-        twos = MathOps::add(
-            MathOps::div(MathOps::sub(U256::ZERO, twos), twos),
-            U256::ONE,
-        );
+        twos = MathOps::add(MathOps::div(MathOps::sub(U256::ZERO, twos), twos), U256::ONE);
         prod0 |= MathOps::mul(prod1, twos);
 
         // Invert denominator mod 2**256
@@ -159,34 +150,16 @@ impl FullMathTrait for FullMath {
         // modulo 2**256 such that denominator * inv = 1 mod 2**256.
         // Compute the inverse by starting with a seed that is correct
         // correct for four bits. That is, denominator * inv = 1 mod 2**4
-        let mut inv = (MathOps::mul(U256::new(3), denominator)) ^ U256::new(2);
+        let mut inv = MathOps::mul(U256::new(3), denominator) ^ U256::new(2);
         // Now use Newton-Raphson iteration to improve the precision.
         // Thanks to Hensel's lifting lemma, this also works in modular
         // arithmetic, doubling the correct bits in each step.
-        inv = MathOps::mul(
-            inv,
-            MathOps::sub(U256::new(2), MathOps::mul(denominator, inv)),
-        ); // inverse mod 2**8
-        inv = MathOps::mul(
-            inv,
-            MathOps::sub(U256::new(2), MathOps::mul(denominator, inv)),
-        ); // inverse mod 2**16
-        inv = MathOps::mul(
-            inv,
-            MathOps::sub(U256::new(2), MathOps::mul(denominator, inv)),
-        ); // inverse mod 2**32
-        inv = MathOps::mul(
-            inv,
-            MathOps::sub(U256::new(2), MathOps::mul(denominator, inv)),
-        ); // inverse mod 2**64
-        inv = MathOps::mul(
-            inv,
-            MathOps::sub(U256::new(2), MathOps::mul(denominator, inv)),
-        ); // inverse mod 2**128
-        inv = MathOps::mul(
-            inv,
-            MathOps::sub(U256::new(2), MathOps::mul(denominator, inv)),
-        ); // inverse mod 2**256
+        inv = MathOps::mul(inv, MathOps::sub(U256::new(2), MathOps::mul(denominator, inv))); // inverse mod 2**8
+        inv = MathOps::mul(inv, MathOps::sub(U256::new(2), MathOps::mul(denominator, inv))); // inverse mod 2**16
+        inv = MathOps::mul(inv, MathOps::sub(U256::new(2), MathOps::mul(denominator, inv))); // inverse mod 2**32
+        inv = MathOps::mul(inv, MathOps::sub(U256::new(2), MathOps::mul(denominator, inv))); // inverse mod 2**64
+        inv = MathOps::mul(inv, MathOps::sub(U256::new(2), MathOps::mul(denominator, inv))); // inverse mod 2**128
+        inv = MathOps::mul(inv, MathOps::sub(U256::new(2), MathOps::mul(denominator, inv))); // inverse mod 2**256
 
         // Because the division is now exact we can divide by multiplying
         // with the modular inverse of denominator. This will give us the
@@ -194,8 +167,7 @@ impl FullMathTrait for FullMath {
         // that the outcome is less than 2**256, this is the final result.
         // We don't need to compute the high bits of the result and prod1
         // is no longer required.
-        let result = MathOps::mul(prod0, inv);
-        return result;
+        MathOps::mul(prod0, inv)
     }
 
     // @notice Calculates ceil(a×b÷denominator) with full precision. Throws if result overflows a uint256 or denominator == 0
@@ -214,11 +186,7 @@ impl FullMathTrait for FullMath {
     }
 
     fn unsafe_div_rounding_up(x: U256, y: U256) -> U256 {
-        let z = MathOps::add(
-            MathOps::div(x, y),
-            MathOps::gt(MathOps::modulo(x, y), U256::ZERO),
-        );
-        z
+        MathOps::add(MathOps::div(x, y), MathOps::gt(MathOps::modulo(x, y), U256::ZERO))
     }
 }
 
@@ -289,11 +257,7 @@ impl FullMathEchidnaTest for FullMathTestEngine {
     /// @param y The divisor
     /// @return z The quotient, ceil(x / y)
     fn unsafe_div_round_up(x: U256, y: U256) -> U256 {
-        let z = MathOps::add(
-            MathOps::div(x, y),
-            MathOps::gt(MathOps::modulo(x, y), U256::ZERO),
-        );
-        z
+        MathOps::add(MathOps::div(x, y), MathOps::gt(MathOps::modulo(x, y), U256::ZERO))
     }
 }
 
@@ -308,11 +272,7 @@ mod tests {
     #[test]
     fn test_mulmod() {
         assert_eq!(
-            MathOps::mulmod(
-                U256::new(314159265),
-                U256::new(314159265),
-                U256::new(314159265)
-            ),
+            MathOps::mulmod(U256::new(314159265), U256::new(314159265), U256::new(314159265)),
             0
         );
         assert_eq!(
@@ -335,21 +295,17 @@ mod tests {
             MathOps::mulmod(
                 U256::from_str(
                     "11579208923731619542357098500868790785326998466564056403945758400791312963993"
-                )
-                .unwrap(),
+                ).unwrap(),
                 U256::from_str(
                     "57896044618658097711785492504343953926634992332820282019728792003956564819968"
-                )
-                .unwrap(),
+                ).unwrap(),
                 U256::from_str(
                     "7257920892373161954235709850086879078532699846656405640394575840079131296399"
-                )
-                .unwrap()
+                ).unwrap()
             ),
             U256::from_str(
                 "6027955390367321265543803621229480096361388853679971715171647694262792444634"
-            )
-            .unwrap()
+            ).unwrap()
         );
     }
 
@@ -359,48 +315,56 @@ mod tests {
     #[test]
     fn test_mul_div() {
         // reverts if denominator is 0
-        assert!(panic::catch_unwind(|| {
-            FullMath::mul_div(fixed_point_128::get_q128(), U256::new(5), U256::new(0));
-        })
-        .is_err());
+        assert!(
+            panic
+                ::catch_unwind(|| {
+                    FullMath::mul_div(fixed_point_128::get_q128(), U256::new(5), U256::new(0));
+                })
+                .is_err()
+        );
         // reverts if denominator is 0 and numerator overflows
-        assert!(panic::catch_unwind(|| {
-            FullMath::mul_div(
-                fixed_point_128::get_q128(),
-                fixed_point_128::get_q128(),
-                U256::new(0),
-            );
-        })
-        .is_err());
+        assert!(
+            panic
+                ::catch_unwind(|| {
+                    FullMath::mul_div(
+                        fixed_point_128::get_q128(),
+                        fixed_point_128::get_q128(),
+                        U256::new(0)
+                    );
+                })
+                .is_err()
+        );
         assert_eq!(
-            FullMath::mul_div(
-                fixed_point_128::get_q128(),
-                fixed_point_128::get_q128(),
-                U256::MAX
-            ),
+            FullMath::mul_div(fixed_point_128::get_q128(), fixed_point_128::get_q128(), U256::MAX),
             U256::new(1)
         );
         // overflow
-        assert!(panic::catch_unwind(|| {
-            FullMath::mul_div(U256::MAX, U256::MAX, U256::MAX - 1);
-        })
-        .is_err());
-        assert!(panic::catch_unwind(|| {
-            FullMath::mul_div(U256::MAX, U256::MAX, U256::MAX - 1);
-        })
-        .is_err());
-        // all max inputs
-        assert_eq!(
-            FullMath::mul_div(U256::MAX, U256::MAX, U256::MAX),
-            U256::MAX
+        assert!(
+            panic
+                ::catch_unwind(|| {
+                    FullMath::mul_div(U256::MAX, U256::MAX, U256::MAX - 1);
+                })
+                .is_err()
         );
+        assert!(
+            panic
+                ::catch_unwind(|| {
+                    FullMath::mul_div(U256::MAX, U256::MAX, U256::MAX - 1);
+                })
+                .is_err()
+        );
+        // all max inputs
+        assert_eq!(FullMath::mul_div(U256::MAX, U256::MAX, U256::MAX), U256::MAX);
 
         // accurate without phantom overflow
         {
             let x = fixed_point_128::get_q128();
             let y = FullMath::mul_div(U256::new(50), fixed_point_128::get_q128(), U256::new(100));
-            let modulo =
-                FullMath::mul_div(U256::new(150), fixed_point_128::get_q128(), U256::new(100));
+            let modulo = FullMath::mul_div(
+                U256::new(150),
+                fixed_point_128::get_q128(),
+                U256::new(100)
+            );
             let answer = fixed_point_128::get_q128() / U256::new(3);
             assert_eq!(FullMath::mul_div(x, y, modulo), answer);
         }
@@ -410,7 +374,7 @@ mod tests {
             let x = fixed_point_128::get_q128();
             let y = x * U256::new(35);
             let modulo = x * U256::new(8);
-            let answer = U256::new(4375) * fixed_point_128::get_q128() / U256::new(1000);
+            let answer = (U256::new(4375) * fixed_point_128::get_q128()) / U256::new(1000);
             assert_eq!(FullMath::mul_div(x, y, modulo), answer);
         }
         // accurate with phantom overflow and repeating decimal
@@ -418,7 +382,7 @@ mod tests {
             let x = fixed_point_128::get_q128();
             let y = x * U256::new(1000);
             let modulo = x * U256::new(3000);
-            let answer = U256::new(1) * fixed_point_128::get_q128() / U256::new(3);
+            let answer = (U256::new(1) * fixed_point_128::get_q128()) / U256::new(3);
             assert_eq!(FullMath::mul_div(x, y, modulo), answer);
         }
     }
@@ -426,48 +390,89 @@ mod tests {
     #[test]
     fn test_mul_div_rounding_up() {
         // reverts if denominator is 0
-        assert!(panic::catch_unwind(|| {
-            FullMath::mul_div_rounding_up(fixed_point_128::get_q128(), U256::new(5), U256::new(0));
-        })
-        .is_err());
+        assert!(
+            panic
+                ::catch_unwind(|| {
+                    FullMath::mul_div_rounding_up(
+                        fixed_point_128::get_q128(),
+                        U256::new(5),
+                        U256::new(0)
+                    );
+                })
+                .is_err()
+        );
         // reverts if denominator is 0 and numerator overflows
-        assert!(panic::catch_unwind(|| {
-            FullMath::mul_div_rounding_up(
-                fixed_point_128::get_q128(),
-                fixed_point_128::get_q128(),
-                U256::new(0),
-            );
-        })
-        .is_err());
+        assert!(
+            panic
+                ::catch_unwind(|| {
+                    FullMath::mul_div_rounding_up(
+                        fixed_point_128::get_q128(),
+                        fixed_point_128::get_q128(),
+                        U256::new(0)
+                    );
+                })
+                .is_err()
+        );
         // reverts if output overflows uint256
-        assert!(panic::catch_unwind(|| {
-            FullMath::mul_div_rounding_up(
-                fixed_point_128::get_q128(),
-                fixed_point_128::get_q128(),
-                U256::new(1),
-            );
-        })
-        .is_err());
+        assert!(
+            panic
+                ::catch_unwind(|| {
+                    FullMath::mul_div_rounding_up(
+                        fixed_point_128::get_q128(),
+                        fixed_point_128::get_q128(),
+                        U256::new(1)
+                    );
+                })
+                .is_err()
+        );
         // reverts on overflow with all max inputs
-        assert!(panic::catch_unwind(|| {
-            FullMath::mul_div_rounding_up(U256::MAX, U256::MAX, U256::MAX.sub(U256::ONE));
-        })
-        .is_err());
+        assert!(
+            panic
+                ::catch_unwind(|| {
+                    FullMath::mul_div_rounding_up(U256::MAX, U256::MAX, U256::MAX.sub(U256::ONE));
+                })
+                .is_err()
+        );
         // reverts if mulDiv overflows 256 bits after rounding up
-        assert!(panic::catch_unwind(|| {
-            FullMath::mul_div_rounding_up(
-                U256::new(535006138814359),
-                U256::from_str("432862656469423142931042426214547535783388063929571229938474969")
-                    .unwrap()
-                    .as_u256(),
-                U256::new(2),
-            );
-        })
-        .is_err());
+        assert!(
+            panic
+                ::catch_unwind(|| {
+                    FullMath::mul_div_rounding_up(
+                        U256::new(535006138814359),
+                        U256::from_str(
+                            "432862656469423142931042426214547535783388063929571229938474969"
+                        )
+                            .unwrap()
+                            .as_u256(),
+                        U256::new(2)
+                    );
+                })
+                .is_err()
+        );
         // reverts if mulDiv overflows 256 bits after rounding up case 2
-        assert!(panic::catch_unwind(|| {
-      FullMath::mul_div_rounding_up(U256::from_str("115792089237316195423570985008687907853269984659341747863450311749907997002549").unwrap().as_u256(), U256::from_str("115792089237316195423570985008687907853269984659341747863450311749907997002550").unwrap().as_u256(), U256::from_str("115792089237316195423570985008687907853269984653042931687443039491902864365164").unwrap().as_u256());
-    }).is_err());
+        assert!(
+            panic
+                ::catch_unwind(|| {
+                    FullMath::mul_div_rounding_up(
+                        U256::from_str(
+                            "115792089237316195423570985008687907853269984659341747863450311749907997002549"
+                        )
+                            .unwrap()
+                            .as_u256(),
+                        U256::from_str(
+                            "115792089237316195423570985008687907853269984659341747863450311749907997002550"
+                        )
+                            .unwrap()
+                            .as_u256(),
+                        U256::from_str(
+                            "115792089237316195423570985008687907853269984653042931687443039491902864365164"
+                        )
+                            .unwrap()
+                            .as_u256()
+                    );
+                })
+                .is_err()
+        );
         // all max inputs
         {
             let x = U256::MAX;
@@ -480,8 +485,11 @@ mod tests {
         {
             let x = fixed_point_128::get_q128();
             let y = FullMath::mul_div(U256::new(50), fixed_point_128::get_q128(), U256::new(100));
-            let modulo =
-                FullMath::mul_div(U256::new(150), fixed_point_128::get_q128(), U256::new(100));
+            let modulo = FullMath::mul_div(
+                U256::new(150),
+                fixed_point_128::get_q128(),
+                U256::new(100)
+            );
             let answer = fixed_point_128::get_q128() / U256::new(3) + U256::ONE;
             assert_eq!(FullMath::mul_div_rounding_up(x, y, modulo), answer);
         }
@@ -490,7 +498,7 @@ mod tests {
             let x = fixed_point_128::get_q128();
             let y = x * U256::new(35);
             let modulo = x * U256::new(8);
-            let answer = U256::new(4375) * fixed_point_128::get_q128() / U256::new(1000);
+            let answer = (U256::new(4375) * fixed_point_128::get_q128()) / U256::new(1000);
             assert_eq!(FullMath::mul_div_rounding_up(x, y, modulo), answer);
         }
         // accurate with phantom overflow and repeating decimal
@@ -498,7 +506,7 @@ mod tests {
             let x = fixed_point_128::get_q128();
             let y = x * U256::new(1000);
             let modulo = x * U256::new(3000);
-            let answer = U256::new(1) * fixed_point_128::get_q128() / U256::new(3) + U256::ONE;
+            let answer = (U256::new(1) * fixed_point_128::get_q128()) / U256::new(3) + U256::ONE;
             assert_eq!(FullMath::mul_div_rounding_up(x, y, modulo), answer);
         }
     }
@@ -526,14 +534,20 @@ mod tests {
 
         for (x, y, d) in tests {
             if d <= U256::ZERO {
-                assert!(panic::catch_unwind(|| {
-                    FullMath::mul_div(x, y, d);
-                })
-                .is_err());
-                assert!(panic::catch_unwind(|| {
-                    FullMath::mul_div_rounding_up(x, y, d);
-                })
-                .is_err());
+                assert!(
+                    panic
+                        ::catch_unwind(|| {
+                            FullMath::mul_div(x, y, d);
+                        })
+                        .is_err()
+                );
+                assert!(
+                    panic
+                        ::catch_unwind(|| {
+                            FullMath::mul_div_rounding_up(x, y, d);
+                        })
+                        .is_err()
+                );
             } else if x == U256::ZERO || y == U256::ZERO {
                 assert_eq!(FullMath::mul_div(x, y, d), U256::ZERO);
                 assert_eq!(FullMath::mul_div_rounding_up(x, y, d), U256::ZERO);
