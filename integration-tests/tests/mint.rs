@@ -10,7 +10,7 @@ mod helper;
 #[tokio::test]
 async fn test_mint_properly() -> anyhow::Result<()> {
     let worker = workspaces::sandbox().await?;
-    println!("Initializing...");
+    println!("\nContracts setup...");
     let context = init(&worker).await?;
     let liquidity_provider = context.deployer;
     println!("✅ Setup done");
@@ -18,7 +18,7 @@ async fn test_mint_properly() -> anyhow::Result<()> {
     // deposit token 0 & 1 into deployer
     let token_0_amount = U128::from(100);
     let token_1_amount = U128::from(500_000);
-    println!("Depositing token 0 & 1 into deployer...");
+    println!("\nDepositing token 0 & 1 into ZswapManager...");
     liquidity_provider
         .call(context.token_0_contract.id(), "ft_transfer_call")
         .args_json((
@@ -45,7 +45,6 @@ async fn test_mint_properly() -> anyhow::Result<()> {
         .transact()
         .await?
         .into_result()?;
-
     let deposited_token_0 = context
         .manager_contract
         .call("get_deposited_token")
@@ -71,20 +70,39 @@ async fn test_mint_properly() -> anyhow::Result<()> {
         lower_tick: -500,
         upper_tick: 500,
         amount_0_desired: token_0_amount,
-        amount_1_desired: token_1_amount,
+        amount_1_desired: token_0_amount,
         amount_0_min: U128::from(0),
         amount_1_min: U128::from(0),
     };
-    let res = liquidity_provider
+
+    let added_amounts = liquidity_provider
         .call(context.manager_contract.id(), "mint")
         .args_json(json!({ "params": mint_params }))
         .max_gas()
         .transact()
-        .await?;
-    res.logs().iter().for_each(|log| {
-        println!("integration test log: {:?}", log);
-    });
-    println!("{:#?}", res.clone().into_result()?);
+        .await?
+        .json::<[U128; 2]>()?;
+
+    let balance_token_0_pool = context
+        .token_0_contract
+        .call("ft_balance_of")
+        .args_json(json!({"account_id": context.pool_id}))
+        .view()
+        .await?
+        .json::<U128>()?;
+    println!("balance_token_0_pool: {:?}", balance_token_0_pool);
+    assert_eq!(balance_token_0_pool, added_amounts[0]);
+
+    let balance_token_1_pool = context
+        .token_1_contract
+        .call("ft_balance_of")
+        .args_json(json!({"account_id": context.pool_id}))
+        .view()
+        .await?
+        .json::<U128>()?;
+    assert_eq!(balance_token_1_pool, added_amounts[1]);
+
+    println!("✅ Minted liquidity tokens");
 
     Ok(())
 }

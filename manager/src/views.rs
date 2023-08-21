@@ -1,6 +1,6 @@
 use near_sdk::{json_types::U128, near_bindgen, AccountId};
 
-use crate::{Contract, ContractExt};
+use crate::{utils::get_approved_token_key, Contract, ContractExt};
 
 #[near_bindgen]
 impl Contract {
@@ -19,11 +19,9 @@ impl Contract {
         token: AccountId,
     ) -> U128 {
         let owner_account = self.get_account(&owner);
-        match owner_account.approved_tokens.get(&spender) {
-            Some(spender_approved) => match spender_approved.get(&token) {
-                Some(amount) => amount.into(),
-                None => 0.into(),
-            },
+        let approved_token_key = get_approved_token_key(&spender, &token);
+        match owner_account.approved_tokens.get(&approved_token_key) {
+            Some(approved_amount) => approved_amount.into(),
             None => 0.into(),
         }
     }

@@ -14,7 +14,8 @@ impl FungibleTokenReceiver for Contract {
         let token_in = env::predecessor_account_id();
         if msg.is_empty() {
             self.internal_deposit(&sender_id, &token_in, amount.into());
-            PromiseOrValue::Value(amount)
+            let unused_amount = U128(0);
+            PromiseOrValue::Value(unused_amount)
         } else {
             // TODO: handle swap
             PromiseOrValue::Value(U128(0))

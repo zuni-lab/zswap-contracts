@@ -9,7 +9,7 @@ pub fn encode_price_sqrt(reserve1: U256, reserve0: U256) -> U256 {
     // res = sqrt(a/b) * c
     // res^2 <= a / b * c^2
     // res <= (a * c^2 / (res * b))
-    let mut l = U256::from(4295128739 as u64);
+    let mut l = U256::from(4295128739_u64);
     let mut r = U256::one() << U256::from(160);
     let mut res = U256::zero();
 

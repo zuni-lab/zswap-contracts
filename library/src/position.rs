@@ -19,28 +19,9 @@ pub struct PositionInfo {
     pub tokens_owed_1: u128,
 }
 
-// Define trait for updating position
-trait UpdatePosition {
-    /// @notice Credits accumulated fees to a user's position
-    /// @param self The individual position to update
-    /// @param liquidityDelta The change in pool liquidity as a result of the position update
-    /// @param feeGrowthInside0X128 The all-time fee growth in token0, per unit of liquidity, inside the position's tick boundaries
-    /// @param feeGrowthInside1X128 The all-time fee growth in token1, per unit of liquidity, inside the position's tick boundaries
-    fn update(
-        &mut self,
-        liquidity_delta: i128,
-        fee_growth_inside_0_x128: U256,
-        fee_growth_inside_1_x128: U256,
-    );
-}
-
-impl UpdatePosition for PositionInfo {
-    /// @notice Credits accumulated fees to a user's position
-    /// @param self The individual position to update
-    /// @param liquidityDelta The change in pool liquidity as a result of the position update
-    /// @param feeGrowthInside0X128 The all-time fee growth in token0, per unit of liquidity, inside the position's tick boundaries
-    /// @param feeGrowthInside1X128 The all-time fee growth in token1, per unit of liquidity, inside the position's tick boundaries
-    fn update(
+impl PositionInfo {
+    /// Credits accumulated fees to a user's position
+    pub fn update(
         &mut self,
         liquidity_delta: i128,
         fee_growth_inside_0_x128: U256,
@@ -87,8 +68,8 @@ mod tests {
     // use ethnum::U256;
     // use std::panic;
 
-  #[test]
-  fn test_update() {
-    // TODO: @galin-chung-nguyen
-  }
+    #[test]
+    fn test_update() {
+        // TODO: @galin-chung-nguyen
+    }
 }

@@ -10,7 +10,7 @@ use crate::num56::{I56, U56};
 use crate::tick_math::TickConstants;
 
 // info stored for each initialized individual tick
-#[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug)]
+#[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, Default)]
 pub struct TickInfo {
     // the total position liquidity that references this tick
     pub liquidity_gross: u128,
@@ -18,8 +18,8 @@ pub struct TickInfo {
     pub liquidity_net: i128,
     // fee growth per unit of liquidity on the _other_ side of this tick (relative to the current tick)
     // only has relative meaning, not absolute — the value depends on when the tick is initialized
-    fee_growth_outside0_x128: U256,
-    fee_growth_outside1_x128: U256,
+    fee_growth_outside_0_x128: U256,
+    fee_growth_outside_1_x128: U256,
     // the cumulative tick value on the other side of the tick
     pub tick_cumulative_outside: I56,
     // the seconds per unit of liquidity on the _other_ side of this tick (relative to the current tick)
@@ -33,116 +33,17 @@ pub struct TickInfo {
     pub initialized: bool,
 }
 
-impl Default for TickInfo {
-    fn default() -> Self {
-        TickInfo {
-            liquidity_gross: 0,
-            liquidity_net: 0,
-            fee_growth_outside0_x128: U256::zero(),
-            fee_growth_outside1_x128: U256::zero(),
-            tick_cumulative_outside: 0,
-            seconds_per_liquidity_outside_x128: U160::zero(),
-            seconds_outside: 0,
-            initialized: false,
-        }
-    }
-}
-
-/// @title Tick
-/// @notice Contains functions for managing tick processes and relevant calculations
-
-/// @notice Derives max liquidity per tick from given tick spacing
-/// @dev Executed within the pool constructor
-/// @param tickSpacing The amount of required tick separation, realized in multiples of `tickSpacing`
-///     e.g., a tickSpacing of 3 requires ticks to be initialized every 3rd tick i.e., ..., -6, -3, 0, 3, 6, ...
-/// @return The max liquidity per tick
-pub fn tick_spacing_to_max_liquidity_per_tick(tick_spacing: I24) -> u128 {
-    let min_tick = ((TickConstants::MIN_TICK.as_i256() / tick_spacing.as_i256())
-        * tick_spacing.as_i256())
-    .as_i24();
-    let max_tick = ((TickConstants::MAX_TICK.as_i256() / tick_spacing.as_i256())
-        * tick_spacing.as_i256())
-    .as_i24();
-    let num_ticks = U256::from((max_tick - min_tick) / tick_spacing + 1).as_u24();
-    u128::MAX / (num_ticks as u128)
-}
-
-/// !MODIFIED
-/// @notice Retrieves fee growth data
-/// @param self The mapping containing all tick information for initialized ticks
-/// @param tickLower The lower tick boundary of the position
-/// @param tickUpper The upper tick boundary of the position
-/// @param tickCurrent The current tick
-/// @param feeGrowthGlobal0X128 The all-time global fee growth, per unit of liquidity, in token0
-/// @param feeGrowthGlobal1X128 The all-time global fee growth, per unit of liquidity, in token1
-/// @return feeGrowthInside0X128 The all-time fee growth in token0, per unit of liquidity, inside the position's tick boundaries
-/// @return feeGrowthInside1X128 The all-time fee growth in token1, per unit of liquidity, inside the position's tick boundaries
-pub fn get_fee_growth_inside(
-    tick_lower: I24,
-    tick_upper: I24,
-    lower: &TickInfo,
-    upper: &TickInfo,
-    tick_current: I24,
-    fee_growth_global0_x128: U256,
-    fee_growth_global1_x128: U256,
-) -> (U256, U256) {
-    // calculate fee growth below
-    let fee_growth_below0_x128: U256;
-    let fee_growth_below1_x128: U256;
-    if tick_current >= tick_lower {
-        fee_growth_below0_x128 = lower.fee_growth_outside0_x128;
-        fee_growth_below1_x128 = lower.fee_growth_outside1_x128;
-    } else {
-        fee_growth_below0_x128 =
-            MathOps::sub(fee_growth_global0_x128, lower.fee_growth_outside0_x128);
-        fee_growth_below1_x128 =
-            MathOps::sub(fee_growth_global1_x128, lower.fee_growth_outside1_x128);
-    }
-
-    // Calculate fee growth above
-    let fee_growth_above0_x128: U256;
-    let fee_growth_above1_x128: U256;
-    if tick_current < tick_upper {
-        fee_growth_above0_x128 = upper.fee_growth_outside0_x128;
-        fee_growth_above1_x128 = upper.fee_growth_outside1_x128;
-    } else {
-        fee_growth_above0_x128 =
-            MathOps::sub(fee_growth_global0_x128, upper.fee_growth_outside0_x128);
-        fee_growth_above1_x128 =
-            MathOps::sub(fee_growth_global1_x128, upper.fee_growth_outside1_x128);
-    }
-
-    let fee_growth_inside0_x128 = MathOps::sub(
-        MathOps::sub(fee_growth_global0_x128, fee_growth_below0_x128),
-        fee_growth_above0_x128,
-    );
-    let fee_growth_inside1_x128 = MathOps::sub(
-        MathOps::sub(fee_growth_global1_x128, fee_growth_below1_x128),
-        fee_growth_above1_x128,
-    );
-
-    (fee_growth_inside0_x128, fee_growth_inside1_x128)
-}
-
 impl TickInfo {
-    /// !MODIFIED
-    /// @notice Updates a tick and returns true if the tick was flipped from initialized to uninitialized, or vice versa
-    /// @param self The mapping containing all tick information for initialized ticks
-    /// @param tick The tick that will be updated
-    /// @param tickCurrent The current tick
-    /// @param liquidityDelta A new amount of liquidity to be added (subtracted) when tick is crossed from left to right (right to left)
-    /// @param feeGrowthGlobal0X128 The all-time global fee growth, per unit of liquidity, in token0
-    /// @param feeGrowthGlobal1X128 The all-time global fee growth, per unit of liquidity, in token1
-    /// @param upper true for updating a position's upper tick, or false for updating a position's lower tick
-    /// @param maxLiquidity The maximum liquidity allocation for a single tick
-    /// @return flipped Whether the tick was flipped from initialized to uninitialized, or vice versa
+    /// Updates a tick and returns true if the tick was flipped from initialized to uninitialized, or vice versa
+    ///
+    /// Return flipped whether the tick was flipped from initialized to uninitialized, or vice versa
     pub fn update(
         &mut self,
         tick: I24,
         current_tick: I24,
         liquidity_delta: i128,
-        fee_growth_global0_x128: U256,
-        fee_growth_global1_x128: U256,
+        fee_growth_global_0_x128: U256,
+        fee_growth_global_1_x128: U256,
         upper: bool,
     ) -> bool {
         let liquidity_gross_before = self.liquidity_gross;
@@ -156,8 +57,8 @@ impl TickInfo {
         if liquidity_gross_before == 0 {
             // by convention, we assume that all growth before a tick was initialized happened _below_ the tick
             if tick <= current_tick {
-                self.fee_growth_outside0_x128 = fee_growth_global0_x128;
-                self.fee_growth_outside1_x128 = fee_growth_global1_x128;
+                self.fee_growth_outside_0_x128 = fee_growth_global_0_x128;
+                self.fee_growth_outside_1_x128 = fee_growth_global_1_x128;
                 // self.seconds_per_liquidity_outside_x128 = seconds_per_liquidity_cumulative_x128;
                 // self.tick_cumulative_outside = tick_cumulative;
                 // self.seconds_outside = time;
@@ -186,6 +87,77 @@ impl TickInfo {
     }
 }
 
+/// @title Tick
+/// @notice Contains functions for managing tick processes and relevant calculations
+
+/// @notice Derives max liquidity per tick from given tick spacing
+/// @dev Executed within the pool constructor
+/// @param tickSpacing The amount of required tick separation, realized in multiples of `tickSpacing`
+///     e.g., a tickSpacing of 3 requires ticks to be initialized every 3rd tick i.e., ..., -6, -3, 0, 3, 6, ...
+/// @return The max liquidity per tick
+pub fn tick_spacing_to_max_liquidity_per_tick(tick_spacing: I24) -> u128 {
+    let min_tick = ((TickConstants::MIN_TICK.as_i256() / tick_spacing.as_i256())
+        * tick_spacing.as_i256())
+    .as_i24();
+    let max_tick = ((TickConstants::MAX_TICK.as_i256() / tick_spacing.as_i256())
+        * tick_spacing.as_i256())
+    .as_i24();
+    let num_ticks = U256::from((max_tick - min_tick) / tick_spacing + 1).as_u24();
+    u128::MAX / (num_ticks as u128)
+}
+
+/// Retrieves fee growth data
+///
+/// Return `fee_growth_inside_0_x128` & `fee_growth_inside_1_x128`
+/// The all-time fee growth in token_0 and token_1,
+/// per unit of liquidity, inside the position's tick boundaries
+pub fn get_fee_growth_inside(
+    lower_tick: I24,
+    upper_tick: I24,
+    lower: &TickInfo,
+    upper: &TickInfo,
+    current_tick: I24,
+    fee_growth_global_0_x128: U256,
+    fee_growth_global_1_x128: U256,
+) -> [U256; 2] {
+    // calculate fee growth below
+    let fee_growth_below0_x128: U256;
+    let fee_growth_below1_x128: U256;
+    if current_tick >= lower_tick {
+        fee_growth_below0_x128 = lower.fee_growth_outside_0_x128;
+        fee_growth_below1_x128 = lower.fee_growth_outside_1_x128;
+    } else {
+        fee_growth_below0_x128 =
+            MathOps::sub(fee_growth_global_0_x128, lower.fee_growth_outside_0_x128);
+        fee_growth_below1_x128 =
+            MathOps::sub(fee_growth_global_1_x128, lower.fee_growth_outside_1_x128);
+    }
+
+    // Calculate fee growth above
+    let fee_growth_above0_x128: U256;
+    let fee_growth_above1_x128: U256;
+    if current_tick < upper_tick {
+        fee_growth_above0_x128 = upper.fee_growth_outside_0_x128;
+        fee_growth_above1_x128 = upper.fee_growth_outside_1_x128;
+    } else {
+        fee_growth_above0_x128 =
+            MathOps::sub(fee_growth_global_0_x128, upper.fee_growth_outside_0_x128);
+        fee_growth_above1_x128 =
+            MathOps::sub(fee_growth_global_1_x128, upper.fee_growth_outside_1_x128);
+    }
+
+    let fee_growth_inside_0_x128 = MathOps::sub(
+        MathOps::sub(fee_growth_global_0_x128, fee_growth_below0_x128),
+        fee_growth_above0_x128,
+    );
+    let fee_growth_inside_1_x128 = MathOps::sub(
+        MathOps::sub(fee_growth_global_1_x128, fee_growth_below1_x128),
+        fee_growth_above1_x128,
+    );
+
+    [fee_growth_inside_0_x128, fee_growth_inside_1_x128]
+}
+
 /// !MODIFIED
 /// @notice Transitions to next tick as needed by price movement
 /// @param self The mapping containing all tick information for initialized ticks
@@ -198,16 +170,16 @@ impl TickInfo {
 /// @return liquidityNet The amount of liquidity added (subtracted) when tick is crossed from left to right (right to left)
 pub fn cross(
     info: &mut TickInfo,
-    fee_growth_global0_x128: U56,
-    fee_growth_global1_x128: U56,
+    fee_growth_global_0_x128: U56,
+    fee_growth_global_1_x128: U56,
     seconds_per_liquidity_cumulative_x128: U160,
     tick_cumulative: I56,
     time: u32,
 ) -> i128 {
-    info.fee_growth_outside0_x128 =
-        U256::from(fee_growth_global0_x128) - info.fee_growth_outside0_x128;
-    info.fee_growth_outside1_x128 =
-        U256::from(fee_growth_global1_x128) - info.fee_growth_outside1_x128;
+    info.fee_growth_outside_0_x128 =
+        U256::from(fee_growth_global_0_x128) - info.fee_growth_outside_0_x128;
+    info.fee_growth_outside_1_x128 =
+        U256::from(fee_growth_global_1_x128) - info.fee_growth_outside_1_x128;
     info.seconds_per_liquidity_outside_x128 =
         seconds_per_liquidity_cumulative_x128 - info.seconds_per_liquidity_outside_x128;
     info.tick_cumulative_outside = tick_cumulative - info.tick_cumulative_outside;
@@ -272,7 +244,7 @@ mod tests {
     fn test_fee_growth_inside_uninitialized_ticks_above() {
         {
             // returns all for two uninitialized ticks if tick is inside
-            let (fee_growth_inside0_x128, fee_growth_inside1_x128) = get_fee_growth_inside(
+            let [fee_growth_inside_0_x128, fee_growth_inside_1_x128] = get_fee_growth_inside(
                 -2,
                 2,
                 &TickInfo::default(),
@@ -281,12 +253,12 @@ mod tests {
                 U256::from(15),
                 U256::from(15),
             );
-            assert_eq!(fee_growth_inside0_x128, U256::from(15));
-            assert_eq!(fee_growth_inside1_x128, U256::from(15));
+            assert_eq!(fee_growth_inside_0_x128, U256::from(15));
+            assert_eq!(fee_growth_inside_1_x128, U256::from(15));
         }
         {
             // returns 0 for two uninitialized ticks if tick is above
-            let (fee_growth_inside0_x128, fee_growth_inside1_x128) = get_fee_growth_inside(
+            let [fee_growth_inside_0_x128, fee_growth_inside_1_x128] = get_fee_growth_inside(
                 -2,
                 2,
                 &TickInfo::default(),
@@ -295,12 +267,12 @@ mod tests {
                 U256::from(15),
                 U256::from(15),
             );
-            assert_eq!(fee_growth_inside0_x128, U256::zero());
-            assert_eq!(fee_growth_inside1_x128, U256::zero());
+            assert_eq!(fee_growth_inside_0_x128, U256::zero());
+            assert_eq!(fee_growth_inside_1_x128, U256::zero());
         }
         {
             // returns 0 for two uninitialized ticks if tick is below
-            let (fee_growth_inside0_x128, fee_growth_inside1_x128) = get_fee_growth_inside(
+            let [fee_growth_inside_0_x128, fee_growth_inside_1_x128] = get_fee_growth_inside(
                 -2,
                 2,
                 &TickInfo::default(),
@@ -309,15 +281,15 @@ mod tests {
                 U256::from(15),
                 U256::from(15),
             );
-            assert_eq!(fee_growth_inside0_x128, U256::zero());
-            assert_eq!(fee_growth_inside1_x128, U256::zero());
+            assert_eq!(fee_growth_inside_0_x128, U256::zero());
+            assert_eq!(fee_growth_inside_1_x128, U256::zero());
         }
         {
             // subtracts upper tick if below
             let lower = TickInfo::default();
             let upper = TickInfo {
-                fee_growth_outside0_x128: U256::from(2),
-                fee_growth_outside1_x128: U256::from(3),
+                fee_growth_outside_0_x128: U256::from(2),
+                fee_growth_outside_1_x128: U256::from(3),
                 liquidity_gross: 0,
                 liquidity_net: 0,
                 seconds_per_liquidity_outside_x128: U160::zero(),
@@ -326,17 +298,17 @@ mod tests {
                 initialized: true,
             };
 
-            let (fee_growth_inside0_x128, fee_growth_inside1_x128) =
+            let [fee_growth_inside_0_x128, fee_growth_inside_1_x128] =
                 get_fee_growth_inside(-2, 2, &lower, &upper, 0, U256::from(15), U256::from(15));
-            assert_eq!(fee_growth_inside0_x128, U256::from(13));
-            assert_eq!(fee_growth_inside1_x128, U256::from(12));
+            assert_eq!(fee_growth_inside_0_x128, U256::from(13));
+            assert_eq!(fee_growth_inside_1_x128, U256::from(12));
         }
         {
             // subtracts upper tick if above
             let upper = TickInfo::default();
             let lower = TickInfo {
-                fee_growth_outside0_x128: U256::from(2),
-                fee_growth_outside1_x128: U256::from(3),
+                fee_growth_outside_0_x128: U256::from(2),
+                fee_growth_outside_1_x128: U256::from(3),
                 liquidity_gross: 0,
                 liquidity_net: 0,
                 seconds_per_liquidity_outside_x128: U160::zero(),
@@ -345,16 +317,16 @@ mod tests {
                 initialized: true,
             };
 
-            let (fee_growth_inside0_x128, fee_growth_inside1_x128) =
+            let [fee_growth_inside_0_x128, fee_growth_inside_1_x128] =
                 get_fee_growth_inside(-2, 2, &lower, &upper, 0, U256::from(15), U256::from(15));
-            assert_eq!(fee_growth_inside0_x128, U256::from(13));
-            assert_eq!(fee_growth_inside1_x128, U256::from(12));
+            assert_eq!(fee_growth_inside_0_x128, U256::from(13));
+            assert_eq!(fee_growth_inside_1_x128, U256::from(12));
         }
         {
             // subtracts upper and lower tick if inside
             let lower = TickInfo {
-                fee_growth_outside0_x128: U256::from(2),
-                fee_growth_outside1_x128: U256::from(3),
+                fee_growth_outside_0_x128: U256::from(2),
+                fee_growth_outside_1_x128: U256::from(3),
                 liquidity_gross: 0,
                 liquidity_net: 0,
                 seconds_per_liquidity_outside_x128: U160::zero(),
@@ -363,8 +335,8 @@ mod tests {
                 initialized: true,
             };
             let upper = TickInfo {
-                fee_growth_outside0_x128: U256::from(4),
-                fee_growth_outside1_x128: U256::from(1),
+                fee_growth_outside_0_x128: U256::from(4),
+                fee_growth_outside_1_x128: U256::from(1),
                 liquidity_gross: 0,
                 liquidity_net: 0,
                 seconds_per_liquidity_outside_x128: U160::zero(),
@@ -373,16 +345,16 @@ mod tests {
                 initialized: true,
             };
 
-            let (fee_growth_inside0_x128, fee_growth_inside1_x128) =
+            let [fee_growth_inside_0_x128, fee_growth_inside_1_x128] =
                 get_fee_growth_inside(-2, 2, &lower, &upper, 0, U256::from(15), U256::from(15));
-            assert_eq!(fee_growth_inside0_x128, U256::from(9));
-            assert_eq!(fee_growth_inside1_x128, U256::from(11));
+            assert_eq!(fee_growth_inside_0_x128, U256::from(9));
+            assert_eq!(fee_growth_inside_1_x128, U256::from(11));
         }
         {
             // works correctly with overflow on inside tick
             let lower = TickInfo {
-                fee_growth_outside0_x128: U256::MAX - U256::from(3),
-                fee_growth_outside1_x128: U256::MAX - U256::from(2),
+                fee_growth_outside_0_x128: U256::MAX - U256::from(3),
+                fee_growth_outside_1_x128: U256::MAX - U256::from(2),
                 liquidity_gross: 0,
                 liquidity_net: 0,
                 seconds_per_liquidity_outside_x128: U160::zero(),
@@ -391,8 +363,8 @@ mod tests {
                 initialized: true,
             };
             let upper = TickInfo {
-                fee_growth_outside0_x128: U256::from(3),
-                fee_growth_outside1_x128: U256::from(5),
+                fee_growth_outside_0_x128: U256::from(3),
+                fee_growth_outside_1_x128: U256::from(5),
                 liquidity_gross: 0,
                 liquidity_net: 0,
                 seconds_per_liquidity_outside_x128: U160::zero(),
@@ -401,10 +373,10 @@ mod tests {
                 initialized: true,
             };
 
-            let (fee_growth_inside0_x128, fee_growth_inside1_x128) =
+            let [fee_growth_inside_0_x128, fee_growth_inside_1_x128] =
                 get_fee_growth_inside(-2, 2, &lower, &upper, 0, U256::from(15), U256::from(15));
-            assert_eq!(fee_growth_inside0_x128, U256::from(16));
-            assert_eq!(fee_growth_inside1_x128, U256::from(13));
+            assert_eq!(fee_growth_inside_0_x128, U256::from(16));
+            assert_eq!(fee_growth_inside_1_x128, U256::from(13));
         }
     }
 
@@ -413,8 +385,8 @@ mod tests {
         {
             // flips the growth variables
             let mut tick = TickInfo {
-                fee_growth_outside0_x128: U256::from(1),
-                fee_growth_outside1_x128: U256::from(2),
+                fee_growth_outside_0_x128: U256::from(1),
+                fee_growth_outside_1_x128: U256::from(2),
                 liquidity_gross: 3,
                 liquidity_net: 4,
                 seconds_per_liquidity_outside_x128: U160::from(5),
@@ -425,8 +397,8 @@ mod tests {
 
             cross(&mut tick, 7, 9, U160::from(8), 15, 10);
 
-            assert_eq!(tick.fee_growth_outside0_x128, U256::from(6));
-            assert_eq!(tick.fee_growth_outside1_x128, U256::from(7));
+            assert_eq!(tick.fee_growth_outside_0_x128, U256::from(6));
+            assert_eq!(tick.fee_growth_outside_1_x128, U256::from(7));
             assert_eq!(tick.seconds_per_liquidity_outside_x128, U256::from(3));
             assert_eq!(tick.tick_cumulative_outside, 9);
             assert_eq!(tick.seconds_outside, 3);
@@ -434,8 +406,8 @@ mod tests {
         {
             // two flips are no op
             let mut tick = TickInfo {
-                fee_growth_outside0_x128: U256::from(1),
-                fee_growth_outside1_x128: U256::from(2),
+                fee_growth_outside_0_x128: U256::from(1),
+                fee_growth_outside_1_x128: U256::from(2),
                 liquidity_gross: 3,
                 liquidity_net: 4,
                 seconds_per_liquidity_outside_x128: U160::from(5),
@@ -447,8 +419,8 @@ mod tests {
             cross(&mut tick, 7, 9, U160::from(8), 15, 10);
             cross(&mut tick, 7, 9, U160::from(8), 15, 10);
 
-            assert_eq!(tick.fee_growth_outside0_x128, U256::from(1));
-            assert_eq!(tick.fee_growth_outside1_x128, U256::from(2));
+            assert_eq!(tick.fee_growth_outside_0_x128, U256::from(1));
+            assert_eq!(tick.fee_growth_outside_1_x128, U256::from(2));
             assert_eq!(tick.seconds_per_liquidity_outside_x128, U256::from(5));
             assert_eq!(tick.tick_cumulative_outside, 6);
             assert_eq!(tick.seconds_outside, 7);

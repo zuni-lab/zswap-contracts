@@ -1,13 +1,17 @@
 // Find all our documentation at https://docs.near.org
-use ethnum::U256;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
+use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
-    env, log, near_bindgen, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault, Promise,
+    env, near_bindgen, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault, Promise,
 };
+
+use zswap_math_library::num160::AsU160;
+use zswap_math_library::num256::U256;
 use zswap_math_library::position::PositionInfo;
 use zswap_math_library::tick::TickInfo;
+use zswap_math_library::tick_math;
 use zswap_math_library::tick_math::TickConstants;
 
 use crate::core_trait::CoreZswapPool;
@@ -32,8 +36,8 @@ pub struct Contract {
     tick_spacing: u32,
     fee: u32,
 
-    fee_growth_global0_x128: u128,
-    fee_growth_global1_x128: u128,
+    fee_growth_global_0_x128: U256,
+    fee_growth_global_1_x128: U256,
 
     slot_0: Slot0,
     liquidity: u128,
@@ -53,24 +57,26 @@ pub enum StorageKey {
     AccountTokens { account_id: AccountId },
 }
 
+#[derive(Deserialize, Serialize, Debug)]
+#[serde(crate = "near_sdk::serde")]
+pub struct PoolView {
+    pub token_0: AccountId,
+    pub token_1: AccountId,
+    pub fee: u32,
+}
+
 #[near_bindgen]
 impl Contract {
     #[init]
-    pub fn new(
-        factory: AccountId,
-        token_0: AccountId,
-        token_1: AccountId,
-        tick_spacing: u32,
-        fee: u32,
-    ) -> Self {
+    pub fn new(token_0: AccountId, token_1: AccountId, tick_spacing: u32, fee: u32) -> Self {
         Self {
-            factory,
+            factory: env::predecessor_account_id(),
             token_0,
             token_1,
             tick_spacing,
             fee,
-            fee_growth_global0_x128: 0,
-            fee_growth_global1_x128: 0,
+            fee_growth_global_0_x128: U256::from(0),
+            fee_growth_global_1_x128: U256::from(0),
             slot_0: Slot0 {
                 sqrt_price_x96: U128::from(0),
                 tick: 0,
@@ -87,7 +93,7 @@ impl Contract {
         if self.slot_0.sqrt_price_x96.0 != 0 {
             env::panic_str(ALREADY_INITIALIZED);
         }
-        let tick = 0; // TODO: calculate tick
+        let tick = tick_math::get_tick_at_sqrt_ratio(U256::from(sqrt_price_x96.0).as_u160());
 
         self.slot_0 = Slot0 {
             sqrt_price_x96,
@@ -116,7 +122,6 @@ impl CoreZswapPool for Contract {
         amount: U128,
         data: Vec<u8>,
     ) -> Promise {
-        log!("Calling `mint()` in `ZswapPool`...");
         let check1 = lower_tick >= upper_tick;
         let check2 = lower_tick < TickConstants::MIN_TICK;
         let check3 = upper_tick > TickConstants::MAX_TICK;
@@ -127,16 +132,14 @@ impl CoreZswapPool for Contract {
         if amount.0 == 0 {
             env::panic_str(ZERO_LIQUIDITY);
         }
-        let (_, amount_0_int, amount_1_int) =
-            self.modify_position(owner, lower_tick, upper_tick, amount.0 as i128);
-
-        let amount_0 = amount_0_int as u128;
-        let amount_1 = amount_1_int as u128;
+        let amounts = self.modify_position(owner, lower_tick, upper_tick, amount.0 as i128);
+        let amount_0 = amounts[0] as u128;
+        let amount_1 = amounts[1] as u128;
 
         let zswap_manager = env::predecessor_account_id();
 
-        self.get_balance0_promise() // get balance of token_0 before transfer
-            .and(self.get_balance1_promise()) // get balance of token_1 before transfer
+        self.get_balance_0_promise()
+            .and(self.get_balance_1_promise())
             .and(
                 ext_ft_zswap_manager::ext(zswap_manager).collect_approved_tokens_to_mint(
                     U128::from(amount_0),
@@ -144,8 +147,6 @@ impl CoreZswapPool for Contract {
                     data,
                 ),
             )
-            .and(self.get_balance0_promise()) // get balance of token_0 after transfer
-            .and(self.get_balance1_promise()) // get balance of token_1 after transfer
             .then(
                 Self::ext(env::current_account_id())
                     .mint_callback_post_collected_tokens(amount_0, amount_1),
@@ -175,20 +176,4 @@ impl CoreZswapPool for Contract {
  * Learn more about Rust tests: https://doc.rust-lang.org/book/ch11-01-writing-tests.html
  */
 #[cfg(test)]
-mod tests {
-    // use super::*;
-
-    // #[test]
-    // fn get_default_greeting() {
-    //     let contract = Contract::default();
-    //     // this test did not call set_greeting so should return the default "Hello" greeting
-    //     assert_eq!(contract.get_greeting(), "Hello".to_string());
-    // }
-
-    // #[test]
-    // fn set_then_get_greeting() {
-    //     let mut contract = Contract::default();
-    //     contract.set_greeting("howdy".to_string());
-    //     assert_eq!(contract.get_greeting(), "howdy".to_string());
-    // }
-}
+mod tests {}

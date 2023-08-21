@@ -5,18 +5,15 @@ use crate::full_math::{FullMath, FullMathTrait, MathOps};
 use crate::num160::{AsU160, Num160Trait, U160};
 use crate::num256::{AsI256, U256};
 
-/// @notice Gets the next sqrt price given a delta of token0
-/// @dev Always rounds up, because in the exact output case (increasing price) we need to move the price at least
+/// Gets the next sqrt price given a delta of token0
+/// Always rounds up, because in the exact output case (increasing price) we need to move the price at least
 /// far enough to get the desired output amount, and in the exact input case (decreasing price) we need to move the
 /// price less in order to not send too much output.
 /// The most precise formula for this is liquidity * sqrtPX96 / (liquidity +- amount * sqrtPX96),
 /// if this is impossible because of overflow, we calculate liquidity / (liquidity / sqrtPX96 +- amount).
-/// @param sqrtPX96 The starting price, i.e. before accounting for the token0 delta
-/// @param liquidity The amount of usable liquidity
-/// @param amount How much of token0 to add or remove from virtual reserves
-/// @param add Whether to add or remove the amount of token0
-/// @return The price after adding or removing amount, depending on add
-pub fn get_next_sqrt_price_from_amount0_rounding_up(
+///
+/// Return The price after adding or removing amount, depending on add
+pub fn get_next_sqrt_price_from_amount_0_rounding_up(
     sqrt_px96: U160,
     liquidity: u128,
     amount: U256,
@@ -53,17 +50,14 @@ pub fn get_next_sqrt_price_from_amount0_rounding_up(
     }
 }
 
-/// @notice Gets the next sqrt price given a delta of token1
-/// @dev Always rounds down, because in the exact output case (decreasing price) we need to move the price at least
+/// Gets the next sqrt price given a delta of token1
+/// Always rounds down, because in the exact output case (decreasing price) we need to move the price at least
 /// far enough to get the desired output amount, and in the exact input case (increasing price) we need to move the
 /// price less in order to not send too much output.
 /// The formula we compute is within <1 wei of the lossless version: sqrtPX96 +- amount / liquidity
-/// @param sqrtPX96 The starting price, i.e., before accounting for the token1 delta
-/// @param liquidity The amount of usable liquidity
-/// @param amount How much of token1 to add, or remove, from virtual reserves
-/// @param add Whether to add, or remove, the amount of token1
-/// @return The price after adding or removing `amount`
-pub fn get_next_sqrt_price_from_amount1_rounding_down(
+///
+/// Return The price after adding or removing `amount`
+pub fn get_next_sqrt_price_from_amount_1_rounding_down(
     sqrt_px96: U160,
     liquidity: u128,
     amount: U256,
@@ -98,13 +92,10 @@ pub fn get_next_sqrt_price_from_amount1_rounding_down(
     }
 }
 
-/// @notice Gets the next sqrt price given an input amount of token0 or token1
-/// @dev Throws if price or liquidity are 0, or if the next price is out of bounds
-/// @param sqrtPX96 The starting price, i.e., before accounting for the input amount
-/// @param liquidity The amount of usable liquidity
-/// @param amountIn How much of token0, or token1, is being swapped in
-/// @param zeroForOne Whether the amount in is token0 or token1
-/// @return sqrtQX96 The price after adding the input amount to token0 or token1
+/// Gets the next sqrt price given an input amount of token0 or token1
+/// Throws if price or liquidity are 0, or if the next price is out of bounds
+///
+/// Retun the price after adding the input amount to token0 or token1
 pub fn get_next_sqrt_price_from_input(
     sqrt_px96: U160,
     liquidity: u128,
@@ -114,19 +105,16 @@ pub fn get_next_sqrt_price_from_input(
     assert!(sqrt_px96 > U160::zero() && liquidity > 0);
 
     if zero_for_one {
-        get_next_sqrt_price_from_amount0_rounding_up(sqrt_px96, liquidity, amount_in, true)
+        get_next_sqrt_price_from_amount_0_rounding_up(sqrt_px96, liquidity, amount_in, true)
     } else {
-        get_next_sqrt_price_from_amount1_rounding_down(sqrt_px96, liquidity, amount_in, true)
+        get_next_sqrt_price_from_amount_1_rounding_down(sqrt_px96, liquidity, amount_in, true)
     }
 }
 
-/// @notice Gets the next sqrt price given an output amount of token0 or token1
-/// @dev Throws if price or liquidity are 0 or the next price is out of bounds
-/// @param sqrtPX96 The starting price before accounting for the output amount
-/// @param liquidity The amount of usable liquidity
-/// @param amountOut How much of token0, or token1, is being swapped out
-/// @param zeroForOne Whether the amount out is token0 or token1
-/// @return sqrtQX96 The price after removing the output amount of token0 or token1
+/// Gets the next sqrt price given an output amount of token0 or token1
+/// Throws if price or liquidity are 0 or the next price is out of bounds
+///
+/// Return the price after removing the output amount of token0 or token1
 pub fn get_next_sqrt_price_from_output(
     sqrt_px96: U160,
     liquidity: u128,
@@ -136,21 +124,18 @@ pub fn get_next_sqrt_price_from_output(
     assert!(sqrt_px96 > U160::zero() && liquidity > 0);
 
     if zero_for_one {
-        get_next_sqrt_price_from_amount1_rounding_down(sqrt_px96, liquidity, amount_out, false)
+        get_next_sqrt_price_from_amount_1_rounding_down(sqrt_px96, liquidity, amount_out, false)
     } else {
-        get_next_sqrt_price_from_amount0_rounding_up(sqrt_px96, liquidity, amount_out, false)
+        get_next_sqrt_price_from_amount_0_rounding_up(sqrt_px96, liquidity, amount_out, false)
     }
 }
 
-/// @notice Gets the amount0 delta between two prices
-/// @dev Calculates liquidity / sqrt(lower) - liquidity / sqrt(upper),
+/// Gets the amount_0 delta between two prices
+/// Calculates liquidity / sqrt(lower) - liquidity / sqrt(upper),
 /// i.e. liquidity * (sqrt(upper) - sqrt(lower)) / (sqrt(upper) * sqrt(lower))
-/// @param sqrtRatioAX96 A sqrt price
-/// @param sqrtRatioBX96 Another sqrt price
-/// @param liquidity The amount of usable liquidity
-/// @param roundUp Whether to round the amount up or down
-/// @return amount0 Amount of token0 required to cover a position of size liquidity between the two passed prices
-pub fn get_amount0_delta(
+///
+/// Return amount of token0 required to cover a position of size liquidity between the two passed prices
+pub fn get_amount_0_delta(
     _sqrt_ratio_a_x96: U160,
     _sqrt_ratio_b_x96: U160,
     liquidity: u128,
@@ -177,14 +162,11 @@ pub fn get_amount0_delta(
     }
 }
 
-/// @notice Gets the amount1 delta between two prices
-/// @dev Calculates liquidity * (sqrt(upper) - sqrt(lower))
-/// @param sqrtRatioAX96 A sqrt price
-/// @param sqrtRatioBX96 Another sqrt price
-/// @param liquidity The amount of usable liquidity
-/// @param roundUp Whether to round the amount up, or down
-/// @return amount1 Amount of token1 required to cover a position of size liquidity between the two passed prices
-pub fn get_amount1_delta(
+/// Gets the amount1 delta between two prices
+/// Calculates liquidity * (sqrt(upper) - sqrt(lower))
+///
+/// Return amount of token1 required to cover a position of size liquidity between the two passed prices
+pub fn get_amount_1_delta(
     _sqrt_ratio_a_x96: U160,
     _sqrt_ratio_b_x96: U160,
     liquidity: u128,
@@ -211,18 +193,16 @@ pub fn get_amount1_delta(
     }
 }
 
-/// @notice Helper that gets signed token0 delta
-/// @param sqrtRatioAX96 A sqrt price
-/// @param sqrtRatioBX96 Another sqrt price
-/// @param liquidity The change in liquidity for which to compute the amount0 delta
-/// @return amount0 Amount of token0 corresponding to the passed liquidityDelta between the two prices
-pub fn get_amount0_delta_signed(
+/// Helper that gets signed token0 delta
+
+/// amount_0 Amount of token0 corresponding to the passed liquidityDelta between the two prices
+pub fn get_amount_0_delta_signed(
     sqrt_ratio_a_x96: U160,
     sqrt_ratio_b_x96: U160,
     liquidity: i128,
 ) -> I256 {
     if liquidity < 0 {
-        -get_amount0_delta(
+        -get_amount_0_delta(
             sqrt_ratio_a_x96,
             sqrt_ratio_b_x96,
             -liquidity as u128,
@@ -230,22 +210,19 @@ pub fn get_amount0_delta_signed(
         )
         .as_i256()
     } else {
-        get_amount0_delta(sqrt_ratio_a_x96, sqrt_ratio_b_x96, liquidity as u128, true).as_i256()
+        get_amount_0_delta(sqrt_ratio_a_x96, sqrt_ratio_b_x96, liquidity as u128, true).as_i256()
     }
 }
 
-/// @notice Helper that gets signed token1 delta
-/// @param sqrtRatioAX96 A sqrt price
-/// @param sqrtRatioBX96 Another sqrt price
-/// @param liquidity The change in liquidity for which to compute the amount1 delta
-/// @return amount1 Amount of token1 corresponding to the passed liquidityDelta between the two prices
-pub fn get_amount1_delta_signed(
+/// Helper that gets signed token1 delta
+/// amount1 Amount of token1 corresponding to the passed liquidityDelta between the two prices
+pub fn get_amount_1_delta_signed(
     sqrt_ratio_a_x96: U160,
     sqrt_ratio_b_x96: U160,
     liquidity: i128,
 ) -> I256 {
     if liquidity < 0 {
-        -get_amount1_delta(
+        -get_amount_1_delta(
             sqrt_ratio_a_x96,
             sqrt_ratio_b_x96,
             -liquidity as u128,
@@ -253,7 +230,7 @@ pub fn get_amount1_delta_signed(
         )
         .as_i256()
     } else {
-        get_amount1_delta(sqrt_ratio_a_x96, sqrt_ratio_b_x96, liquidity as u128, true).as_i256()
+        get_amount_1_delta(sqrt_ratio_a_x96, sqrt_ratio_b_x96, liquidity as u128, true).as_i256()
     }
 }
 
@@ -539,10 +516,10 @@ mod tests {
     }
 
     #[test]
-    fn test_get_amount0_delta() {
+    fn test_get_amount_0_delta() {
         // returns 0 if liquidity is 0
         assert_eq!(
-            get_amount0_delta(
+            get_amount_0_delta(
                 utils::encode_price_sqrt_u128(1, 1),
                 utils::encode_price_sqrt_u128(2, 1),
                 0,
@@ -553,7 +530,7 @@ mod tests {
 
         // returns 0 if prices are equal
         assert_eq!(
-            get_amount0_delta(
+            get_amount_0_delta(
                 utils::encode_price_sqrt_u128(1, 1),
                 utils::encode_price_sqrt_u128(1, 1),
                 0,
@@ -563,49 +540,49 @@ mod tests {
         );
 
         {
-            // returns 0.1 amount0 for price of 1 to 1.21
-            let amount0 = get_amount0_delta(
+            // returns 0.1 amount_0 for price of 1 to 1.21
+            let amount_0 = get_amount_0_delta(
                 utils::encode_price_sqrt_u128(1, 1),
                 utils::encode_price_sqrt_u128(121, 100),
                 utils::expand_to_18_decimals(1).as_u128(),
                 true,
             );
-            assert_eq!(amount0, U256::from(90909090909090910 as u128));
+            assert_eq!(amount_0, U256::from(90909090909090910 as u128));
 
-            let amount0_rounded_down = get_amount0_delta(
+            let amount_0_rounded_down = get_amount_0_delta(
                 utils::encode_price_sqrt_u128(1, 1),
                 utils::encode_price_sqrt_u128(121, 100),
                 utils::expand_to_18_decimals(1).as_u128(),
                 false,
             );
-            assert_eq!(amount0_rounded_down, amount0.sub(U256::one()));
+            assert_eq!(amount_0_rounded_down, amount_0.sub(U256::one()));
         }
 
         {
             // works for prices that overflow
-            let amount0_up = get_amount0_delta(
+            let amount_0_up = get_amount_0_delta(
                 utils::encode_price_sqrt_u128(2_u128.pow(90), 1),
                 utils::encode_price_sqrt_u128(2_u128.pow(96), 1),
                 utils::expand_to_18_decimals(1).as_u128(),
                 true,
             );
-            let amount0_down = get_amount0_delta(
+            let amount_0_down = get_amount_0_delta(
                 utils::encode_price_sqrt_u128(2_u128.pow(90), 1),
                 utils::encode_price_sqrt_u128(2_u128.pow(96), 1),
                 utils::expand_to_18_decimals(1).as_u128(),
                 false,
             );
 
-            assert_eq!(amount0_up, amount0_down.add(U256::one()));
+            assert_eq!(amount_0_up, amount_0_down.add(U256::one()));
         }
         // gas cost tests ...
     }
 
     #[test]
-    fn test_get_amount1_delta() {
+    fn test_get_amount_1_delta() {
         // returns 0 if liquidity is 0
         assert_eq!(
-            get_amount1_delta(
+            get_amount_1_delta(
                 utils::encode_price_sqrt_u128(1, 1),
                 utils::encode_price_sqrt_u128(2, 1),
                 0,
@@ -616,7 +593,7 @@ mod tests {
 
         // returns 0 if prices are equal
         assert_eq!(
-            get_amount0_delta(
+            get_amount_0_delta(
                 utils::encode_price_sqrt_u128(1, 1),
                 utils::encode_price_sqrt_u128(1, 1),
                 0,
@@ -627,21 +604,21 @@ mod tests {
 
         // returns 0.1 amount1 for price of 1 to 1.21
         {
-            let amount1 = get_amount1_delta(
+            let amount_1 = get_amount_1_delta(
                 utils::encode_price_sqrt_u128(1, 1),
                 utils::encode_price_sqrt_u128(121, 100),
                 utils::expand_to_18_decimals(1).as_u128(),
                 true,
             );
-            assert_eq!(amount1, U256::from(100000000000000000 as u128));
+            assert_eq!(amount_1, U256::from(100000000000000000 as u128));
 
-            let amount1_rounded_down = get_amount1_delta(
+            let amount_1_rounded_down = get_amount_1_delta(
                 utils::encode_price_sqrt_u128(1, 1),
                 utils::encode_price_sqrt_u128(121, 100),
                 utils::expand_to_18_decimals(1).as_u128(),
                 false,
             );
-            assert_eq!(amount1_rounded_down, amount1.sub(U256::one()));
+            assert_eq!(amount_1_rounded_down, amount_1.sub(U256::one()));
         }
     }
 
@@ -661,8 +638,8 @@ mod tests {
             U160::from_dec_str("1025574284609383582644711336373707553698163132913").unwrap()
         );
 
-        let amount0_delta = get_amount0_delta(sqrt_q, sqrt_p, liquidity as u128, true);
-        assert_eq!(amount0_delta, amount_in);
+        let amount_0_delta = get_amount_0_delta(sqrt_q, sqrt_p, liquidity as u128, true);
+        assert_eq!(amount_0_delta, amount_in);
 
         // The remaining assertions related to gas cost can also be adapted in a similar manner.
     }

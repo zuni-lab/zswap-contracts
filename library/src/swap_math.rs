@@ -37,14 +37,14 @@ pub fn compute_swap_step(
             U256::from(1_000_000),
         );
         amount_in = if zero_for_one {
-            sqrt_price_math::get_amount0_delta(
+            sqrt_price_math::get_amount_0_delta(
                 sqrt_ratio_target_x96,
                 sqrt_ratio_current_x96,
                 liquidity,
                 true,
             )
         } else {
-            sqrt_price_math::get_amount1_delta(
+            sqrt_price_math::get_amount_1_delta(
                 sqrt_ratio_current_x96,
                 sqrt_ratio_target_x96,
                 liquidity,
@@ -64,14 +64,14 @@ pub fn compute_swap_step(
         }
     } else {
         amount_out = if zero_for_one {
-            sqrt_price_math::get_amount1_delta(
+            sqrt_price_math::get_amount_1_delta(
                 sqrt_ratio_target_x96,
                 sqrt_ratio_current_x96,
                 liquidity,
                 false,
             )
         } else {
-            sqrt_price_math::get_amount0_delta(
+            sqrt_price_math::get_amount_0_delta(
                 sqrt_ratio_current_x96,
                 sqrt_ratio_target_x96,
                 liquidity,
@@ -97,7 +97,7 @@ pub fn compute_swap_step(
         amount_in = if max && exact_in {
             amount_in
         } else {
-            sqrt_price_math::get_amount0_delta(
+            sqrt_price_math::get_amount_0_delta(
                 sqrt_ratio_next_x96,
                 sqrt_ratio_current_x96,
                 liquidity,
@@ -108,7 +108,7 @@ pub fn compute_swap_step(
         amount_out = if max && !exact_in {
             amount_out
         } else {
-            sqrt_price_math::get_amount1_delta(
+            sqrt_price_math::get_amount_1_delta(
                 sqrt_ratio_next_x96,
                 sqrt_ratio_current_x96,
                 liquidity,
@@ -119,7 +119,7 @@ pub fn compute_swap_step(
         amount_in = if max && exact_in {
             amount_in
         } else {
-            sqrt_price_math::get_amount1_delta(
+            sqrt_price_math::get_amount_1_delta(
                 sqrt_ratio_current_x96,
                 sqrt_ratio_next_x96,
                 liquidity,
@@ -130,7 +130,7 @@ pub fn compute_swap_step(
         amount_out = if max && !exact_in {
             amount_out
         } else {
-            sqrt_price_math::get_amount0_delta(
+            sqrt_price_math::get_amount_0_delta(
                 sqrt_ratio_current_x96,
                 sqrt_ratio_next_x96,
                 liquidity,

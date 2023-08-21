@@ -91,18 +91,18 @@ pub fn next_initialized_tick_within_one_word(
 
 #[cfg(test)]
 mod tests {
-  #[test]
-  fn test_position() {
-    // TODO: @galin-chung-nguyen
-  }
+    #[test]
+    fn test_position() {
+        // TODO: @galin-chung-nguyen
+    }
 
-  #[test]
-  fn test_flip_tick() {
-    // TODO: @galin-chung-nguyen
-  }
+    #[test]
+    fn test_flip_tick() {
+        // TODO: @galin-chung-nguyen
+    }
 
-  #[test]
-  fn test_next_initialized_tick_within_one_word() {
-    // TODO: @galin-chung-nguyen
-  }
+    #[test]
+    fn test_next_initialized_tick_within_one_word() {
+        // TODO: @galin-chung-nguyen
+    }
 }

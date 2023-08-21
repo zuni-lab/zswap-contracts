@@ -119,9 +119,9 @@ impl NonFungibleTokenEnumeration for Contract {
     }
 }
 
-// #[near_bindgen]
-// impl NonFungibleTokenMetadataProvider for Contract {
-//     fn nft_metadata(&self) -> NFTContractMetadata {
-//         self.metadata.get().unwrap()
-//     }
-// }
+#[near_bindgen]
+impl NonFungibleTokenMetadataProvider for Contract {
+    fn nft_metadata(&self) -> NFTContractMetadata {
+        self.metadata.get().unwrap()
+    }
+}

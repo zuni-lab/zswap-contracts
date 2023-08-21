@@ -1,21 +1,20 @@
-use std::cmp::Ordering;
-
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, LookupMap};
 use near_sdk::{
-    env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Gas, Promise, PromiseError,
+    env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Promise, PromiseError,
 };
+use std::cmp::Ordering;
 
 use error::*;
-use pool::PoolInitArgs;
+use pool::*;
 
 mod error;
 mod pool;
 
 const NEAR_PER_STORAGE: Balance = 10_000_000_000_000_000_000; // 10e18yⓃ
 const ZSWAP_POOL_CONTRACT: &[u8] = include_bytes!("../../res/zswap_pool.wasm");
-const TGAS: Gas = Gas(10u64.pow(12)); // 10e12yⓃ
-const NO_DEPOSIT: Balance = 0; // 0yⓃ
+// const TGAS: Gas = Gas(10u64.pow(12)); // 10e12yⓃ
+// const NO_DEPOSIT: Balance = 0; // 0yⓃ
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Pool {
@@ -82,7 +81,8 @@ impl Contract {
 
     #[payable]
     pub fn create_pool(&mut self, token_0: AccountId, token_1: AccountId, fee: u32) -> Promise {
-        if self.fees.get(&fee).is_none() {
+        let tick_spacing_opt = self.fees.get(&fee);
+        if tick_spacing_opt.is_none() {
             env::panic_str(UNSUPPORTED_FEE);
         }
 
@@ -106,7 +106,7 @@ impl Contract {
             fee,
         };
 
-        if self.pools.get(&pool).is_some(){
+        if self.pools.get(&pool).is_some() {
             env::panic_str(POOL_ALREADY_EXISTS);
         }
 
@@ -138,25 +138,21 @@ impl Contract {
         let code = self.code.get().unwrap();
         let contract_bytes = code.len() as u128;
         let minimum_needed = NEAR_PER_STORAGE * contract_bytes;
-        assert!(
-            attached >= minimum_needed,
-            "Attach at least {minimum_needed} yⓃ"
-        );
 
-        let init_args = near_sdk::serde_json::to_vec(&PoolInitArgs {
-            factory: env::current_account_id(),
-            token_0: ordered_token_0,
-            token_1: ordered_token_1,
-            tick_spacing: self.fees.get(&fee).unwrap(),
-            fee,
-        })
-        .unwrap();
+        if attached < minimum_needed {
+            env::panic_str(&format!("Attach at least {} yⓃ", minimum_needed));
+        }
 
         let promise = Promise::new(subaccount.clone())
             .create_account()
             .transfer(attached)
             .deploy_contract(code)
-            .function_call("new".to_owned(), init_args, NO_DEPOSIT, TGAS * 5);
+            .and(ext_zswap_pool::ext(subaccount.clone()).new(
+                ordered_token_0,
+                ordered_token_1,
+                tick_spacing_opt.unwrap(),
+                fee,
+            ));
 
         // Add callback
         promise.then(
