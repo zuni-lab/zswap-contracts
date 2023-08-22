@@ -31,20 +31,20 @@ impl FungibleTokenReceiver for Contract {
 
 impl Contract {
     fn token_0_deposit(&mut self, sender_id: &AccountId, amount: u128) {
-        let depositted_token_opt = self.depositted_token_0.get(&sender_id);
+        let depositted_token_opt = self.depositted_token_0.get(sender_id);
         match depositted_token_opt {
             Some(deposistted) => {
                 self.depositted_token_0
-                    .insert(&sender_id, &(deposistted + amount));
+                    .insert(sender_id, &(deposistted + amount));
             }
             None => {
-                self.depositted_token_0.insert(&sender_id, &amount);
+                self.depositted_token_0.insert(sender_id, &amount);
             }
         }
     }
 
     fn token_1_deposit(&mut self, sender_id: &AccountId, amount: u128) {
-        let depositted_token_opt = self.depositted_token_1.get(&sender_id);
+        let depositted_token_opt = self.depositted_token_1.get(sender_id);
         match depositted_token_opt {
             Some(deposistted) => {
                 self.depositted_token_1

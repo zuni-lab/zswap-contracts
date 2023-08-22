@@ -147,7 +147,7 @@ impl Contract {
                 }
 
                 self.depositted_token_1
-                    .insert(&account, &(deposistted - amount));
+                    .insert(account, &(deposistted - amount));
             }
             None => {
                 env::panic_str(INSUFFICIENT_INPUT_AMOUNT);
