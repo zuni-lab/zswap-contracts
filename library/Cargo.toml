@@ -8,8 +8,10 @@ edition = "2021"
 [dependencies]
 near-sdk = "4.1.1"
 ethnum = "1.3.2"
+uint = { version = "0.9.3", default-features = false }
+hex = "0.4.3"
 
-# [dev-dependencies.cargo-husky]
-# version = "1"
-# default-features = false
-# features = ["user-hooks"]
+[dev-dependencies.cargo-husky]
+version = "1"
+default-features = false
+features = ["user-hooks"]

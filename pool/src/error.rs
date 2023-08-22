@@ -1,5 +1,7 @@
 pub const ALREADY_INITIALIZED: &str = "Already initialized";
 pub const INSUFFICIENT_INPUT_AMOUNT: &str = "Insufficient input amount";
+// pub const CAN_NOT_COLLECT_TOKENS: &str = "Can not collect tokens";
+pub const UNSUPPORTED_TOKEN: &str = "Unsupported token";
 
 #[allow(unused)]
 pub const INVALID_PRICE_LIMIT: &str = "Invalid price limit";

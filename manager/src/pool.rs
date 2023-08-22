@@ -1,5 +1,4 @@
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::Promise;
 use near_sdk::{ext_contract, json_types::U128, AccountId};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -17,8 +16,7 @@ pub trait ZswapPool {
         lower_tick: i32,
         upper_tick: i32,
         amount: U128,
-        data: Vec<u8>,
-    ) -> Promise;
+    ) -> [U128; 2];
 
     fn swap(
         &mut self,

@@ -411,6 +411,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cargo-husky"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b02b629252fe8ef6460461409564e2c21d0c8e77e0944f3d189ff06c4e932ad"
+
+[[package]]
 name = "cc"
 version = "1.0.82"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3419,9 +3425,10 @@ dependencies = [
 name = "zswap-factory"
 version = "1.0.0"
 dependencies = [
- "hex 0.4.3",
+ "cargo-husky",
  "near-sdk",
  "uint",
+ "zswap-math-library",
 ]
 
 [[package]]
@@ -3439,6 +3446,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "workspaces",
+ "zswap-factory",
  "zswap-manager",
  "zswap-pool",
 ]
@@ -3447,8 +3455,8 @@ dependencies = [
 name = "zswap-manager"
 version = "1.0.0"
 dependencies = [
+ "cargo-husky",
  "ethnum",
- "hex 0.4.3",
  "near-contract-standards",
  "near-sdk",
  "uint",
@@ -3459,14 +3467,18 @@ dependencies = [
 name = "zswap-math-library"
 version = "0.1.0"
 dependencies = [
+ "cargo-husky",
  "ethnum",
+ "hex 0.4.3",
  "near-sdk",
+ "uint",
 ]
 
 [[package]]
 name = "zswap-pool"
 version = "1.0.0"
 dependencies = [
+ "cargo-husky",
  "ethnum",
  "near-contract-standards",
  "near-sdk",

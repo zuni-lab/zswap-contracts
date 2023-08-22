@@ -1,100 +1,130 @@
-near-blank-project
-==================
+# ZSwap
 
-This app was initialized with [create-near-app]
+## Step 0: Create a new account
 
+0. Install near-cli
 
-Quick Start
-===========
+```sh
+$ npm install --global near-cli
+```
 
-If you haven't installed dependencies during setup:
+1. Create a new account on [MyNearWallet testnet](https://testnet.mynearwallet.com/)
 
-    npm install
+2. Authorize NEAR CLI, following the commands it gives you:
 
+```sh
+# login to zswap.testnet account
+$ near login --walletUrl https://testnet.mynearwallet.com
+```
 
-Build and deploy your contract to TestNet with a temporary dev account:
+3. Create a subaccount (optional):
 
-    npm run deploy
+```sh
+# create `sub.zswap.testnet` for `zswap.testnet` with 20 NEAR
+$ near create-account sub.zswap.testnet --masterAccount zswap.testnet --initialBalance 20
+```
 
-Test your contract:
+## Step 1: Mint tokens
 
-    npm test
+1. Mint `WNEAR`
 
-If you have a frontend, run `npm start`. This will run a dev server.
+```sh
+# mint 100000 WNEAR for zswap.testnet
+$ near call wnear.zswap.testnet mint '{"receiver_id":"zswap.testnet", "amount": "100000"}' --deposit 1 --accountId zswap.testnet
+```
 
+2. Mint `ZUSD`
 
-Exploring The Code
-==================
+```sh
+# mint 20000 ZUSD for zswap.testnet
+$ near call zusd.zswap.testnet mint '{"receiver_id":"zswap.testnet", "amount": "200000"}' --deposit 1 --accountId zswap.testnet
+```
 
-1. The smart-contract code lives in the `/contract` folder. See the README there for
-   more info. In blockchain apps the smart contract is the "backend" of your app.
-2. The frontend code lives in the `/frontend` folder. `/frontend/index.html` is a great
-   place to start exploring. Note that it loads in `/frontend/index.js`,
-   this is your entrypoint to learn how the frontend connects to the NEAR blockchain.
-3. Test your contract: `npm test`, this will run the tests in `integration-tests` directory.
+## Step 2: Create Pool with Facotry
 
+If testing with `ZNEAR` and `ZUSD`, you can skip this step.
 
-Deploy
-======
+1. Create a new pool for WNEAR - ZUSD. Factory only supports creating a new pool with 2 fee levels: 0.05% and 0.3%.
 
-Every smart contract in NEAR has its [own associated account][NEAR accounts]. 
-When you run `npm run deploy`, your smart contract gets deployed to the live NEAR TestNet with a temporary dev account.
-When you're ready to make it permanent, here's how:
+```sh
+$ near call factory.zswap.testnet create_pool \
+  '{"token_0":"wnear.zswap.testnet","token_1":"zusd.zswap.testnet","fee":3000}' \
+  --accountId zswap.testnet --gas 300000000000000 --deposit 25
 
+# return pool address
+'b0f160b912d575db.factory.zswap.testnet'
+```
 
-Step 0: Install near-cli (optional)
--------------------------------------
+- View pool state
 
-[near-cli] is a command line interface (CLI) for interacting with the NEAR blockchain. It was installed to the local `node_modules` folder when you ran `npm install`, but for best ergonomics you may want to install it globally:
+```sh
+$ near view factory.zswap.testnet get_pool '{"token_0":"zusd.zswap.testnet", "token_1":"wnear.zswap.testnet","fee":3000}'
+```
 
-    npm install --global near-cli
+2. Register storage for `ZswapPool` in FT contracts.
 
-Or, if you'd rather use the locally-installed version, you can prefix all `near` commands with `npx`
+```sh
+WNEAR=wnear.zswap.testnet
+ZUSD=zusd.zswap.testnet
+ZSWAP_POOL=b0f160b912d575db.factory.zswap.testnet
 
-Ensure that it's installed with `near --version` (or `npx near --version`)
+# register storage for `ZswapPool` in `WNEAR`
+near call $WNEAR storage_deposit '{"account_id":"'$ZSWAP_POOL'"}' --deposit 1 --accountId zswap.testnet
 
+# register storage for `ZswapPool` in `ZUSD`
+near call $ZUSD storage_deposit '{"account_id":"'$ZSWAP_POOL'"}' --deposit 1 --accountId zswap.testnet
+```
 
-Step 1: Create an account for the contract
-------------------------------------------
+3. Initialize `sqrt_price`
 
-Each account on NEAR can have at most one contract deployed to it. If you've already created an account such as `your-name.testnet`, you can deploy your contract to `near-blank-project.your-name.testnet`. Assuming you've already created an account on [NEAR Wallet], here's how to create `near-blank-project.your-name.testnet`:
+```sh
+# 1 WNEAR = 100 ZUSD, tick ~ 46054
+near call $ZSWAP_POOL initialize '{"sqrt_price_x96":"792281625142643375935439503360"}' --accountId zswap.testnet
+```
 
-1. Authorize NEAR CLI, following the commands it gives you:
+## Step 3: Mint Liquidity
 
-      near login
+1. Deposit WNEAR into `ZswapManager`
 
-2. Create a subaccount (replace `YOUR-NAME` below with your actual account name):
+```sh
+WNEAR_AMOUNT=1000
 
-      near create-account near-blank-project.YOUR-NAME.testnet --masterAccount YOUR-NAME.testnet
+near call $WNEAR ft_transfer_call '{"receiver_id":"'$ZSWAP_POOL'", "amount":"'$WNEAR_AMOUNT'", "msg":""}' --depositYocto 1 --gas 300000000000000 --accountId zswap.testnet
+```
 
-Step 2: deploy the contract
----------------------------
+2. Deposit ZUSD into `ZswapManager`
 
-Use the CLI to deploy the contract to TestNet with your account ID.
-Replace `PATH_TO_WASM_FILE` with the `wasm` that was generated in `contract` build directory.
+```sh
+ZUSD_AMOUNT=100000
 
-    near deploy --accountId near-blank-project.YOUR-NAME.testnet --wasmFile PATH_TO_WASM_FILE
+near call $ZUSD ft_transfer_call '{"receiver_id":"'$ZSWAP_POOL'", "amount":"'$ZUSD_AMOUNT'", "msg":""}' --depositYocto 1 --gas 300000000000000 --accountId zswap.testnet
+```
 
+3. Mint liquidity
 
-Step 3: set contract name in your frontend code
------------------------------------------------
+- JSON schema example:
 
-Modify the line in `src/config.js` that sets the account name of the contract. Set it to the account id you used above.
+```json
+{
+  "params": {
+    "token_0": "wnear.zswap.testnet",
+    "token_1": "zusd.zswap.testnet",
+    "fee": 3000,
+    "lower_tick": 46000,
+    "upper_tick": 46100,
+    "amount_0_desired": "10",
+    "amount_1_desired": "500",
+    "amount_0_min": "1",
+    "amount_1_min": "100"
+  }
+}
+```
 
-    const CONTRACT_NAME = process.env.CONTRACT_NAME || 'near-blank-project.YOUR-NAME.testnet'
+```sh
+ZSWAP_MANAGER=zswap-manager.testnet
 
+$ near call $ZSWAP_MANAGER mint '{"params":{"token_0":"'$WNEAR'","token_1":"'$ZUSD'","fee":3000,"lower_tick":46000,"upper_tick":46100, "amount_0_desired":"10","amount_1_desired":"500","amount_0_min":"1","amount_1_min":"100"}}' --gas 300000000000000 --accountId zswap.testnet
 
-
-Troubleshooting
-===============
-
-On Windows, if you're seeing an error containing `EPERM` it may be related to spaces in your path. Please see [this issue](https://github.com/zkat/npx/issues/209) for more details.
-
-
-  [create-near-app]: https://github.com/near/create-near-app
-  [Node.js]: https://nodejs.org/en/download/package-manager/
-  [jest]: https://jestjs.io/
-  [NEAR accounts]: https://docs.near.org/concepts/basics/account
-  [NEAR Wallet]: https://wallet.testnet.near.org/
-  [near-cli]: https://github.com/near/near-cli
-  [gh-pages]: https://github.com/tschaub/gh-pages
+# Return amount_0 & amount_1
+[ '6', '500' ]
+```

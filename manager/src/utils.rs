@@ -53,10 +53,14 @@ pub struct SwapCallbackData {
     pub payer: AccountId,
 }
 
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-pub struct PoolCallbackData {
-    pub token_0: AccountId,
-    pub token_1: AccountId,
-    pub payer: AccountId,
-}
+// #[derive(Serialize, Deserialize, Debug)]
+// #[serde(crate = "near_sdk::serde")]
+// pub struct PoolCallbackData {
+//     pub token_0: AccountId,
+//     pub token_1: AccountId,
+//     pub payer: AccountId,
+// }
+
+// pub fn get_approved_token_key(spender_id: &AccountId, token_id: &AccountId) -> CryptoHash {
+//     env::keccak256_array(&[spender_id.as_bytes(), token_id.as_bytes()].concat())
+// }

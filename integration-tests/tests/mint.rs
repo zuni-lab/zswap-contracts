@@ -4,25 +4,25 @@ use serde_json::json;
 use zswap_manager::utils::MintParams;
 
 use helper::*;
+use zswap_pool::utils::Slot0;
 
 mod helper;
 
 #[tokio::test]
 async fn test_mint_properly() -> anyhow::Result<()> {
     let worker = workspaces::sandbox().await?;
-    println!("Setuping...");
+    println!("\nContracts setup...");
     let context = init(&worker).await?;
-    let liqudity_provider = context.deployer;
+    let liquidity_provider = context.deployer;
     println!("✅ Setup done");
 
     // deposit token 0 & 1 into deployer
-    let token_0_amount = U128::from(100);
+    let token_0_amount = U128::from(100_000);
     let token_1_amount = U128::from(500_000);
-    println!("Depositing token 0 & 1 into deployer...");
-    liqudity_provider
+    liquidity_provider
         .call(context.token_0_contract.id(), "ft_transfer_call")
         .args_json((
-            context.manager_contract.id(),
+            context.pool_id.clone(),
             token_0_amount,
             None::<String>,
             String::from(""),
@@ -32,10 +32,10 @@ async fn test_mint_properly() -> anyhow::Result<()> {
         .transact()
         .await?
         .into_result()?;
-    liqudity_provider
+    liquidity_provider
         .call(context.token_1_contract.id(), "ft_transfer_call")
         .args_json((
-            context.manager_contract.id(),
+            context.pool_id.clone(),
             token_1_amount,
             None::<String>,
             String::from(""),
@@ -45,46 +45,61 @@ async fn test_mint_properly() -> anyhow::Result<()> {
         .transact()
         .await?
         .into_result()?;
+    // let deposited_token_0 = context
+    //     .manager_contract
+    //     .call("get_deposited_token")
+    //     .args_json((liquidity_provider.id(), context.token_0_contract.id()))
+    //     .view()
+    //     .await?
+    //     .json::<U128>()?;
+    // let deposited_token_1 = context
+    //     .manager_contract
+    //     .call("get_deposited_token")
+    //     .args_json((liquidity_provider.id(), context.token_1_contract.id()))
+    //     .view()
+    //     .await?
+    //     .json::<U128>()?;
+    // assert_eq!(deposited_token_0, token_0_amount);
+    // assert_eq!(deposited_token_1, token_1_amount);
+    println!("✅ Deposited token 0 & 1 into `ZswapPool`");
 
-    let deposited_token_0 = context
-        .manager_contract
-        .call("get_deposited_token")
-        .args_json((liqudity_provider.id(), context.token_0_contract.id()))
+    let before_slot_0 = liquidity_provider
+        .call(&context.pool_id, "get_slot_0")
         .view()
         .await?
-        .json::<U128>()?;
-    let deposited_token_1 = context
-        .manager_contract
-        .call("get_deposited_token")
-        .args_json((liqudity_provider.id(), context.token_1_contract.id()))
-        .view()
-        .await?
-        .json::<U128>()?;
-    assert_eq!(deposited_token_0, token_0_amount);
-    assert_eq!(deposited_token_1, token_1_amount);
-    println!("✅ Deposited token 0 & 1 into `ZswapManger`");
+        .json::<Slot0>()?;
 
     let mint_params = MintParams {
         token_0: context.token_0_contract.id().parse().unwrap(),
         token_1: context.token_1_contract.id().parse().unwrap(),
         fee: POOL_FEE,
-        lower_tick: -500,
-        upper_tick: 500,
+        lower_tick: 46000,
+        upper_tick: 46200,
         amount_0_desired: token_0_amount,
-        amount_1_desired: token_1_amount,
+        amount_1_desired: token_0_amount,
         amount_0_min: U128::from(0),
         amount_1_min: U128::from(0),
     };
-    let res = liqudity_provider
+
+    let added_amounts = liquidity_provider
         .call(context.manager_contract.id(), "mint")
         .args_json(json!({ "params": mint_params }))
         .max_gas()
         .transact()
-        .await?;
-    res.logs().iter().for_each(|log| {
-        println!("integration test log: {:?}", log);
-    });
-    println!("{:#?}", res.clone().into_result()?);
+        .await?
+        .json::<[U128; 2]>()?;
+    println!("\tMinted amount 0: {}", added_amounts[0].0);
+    println!("\tMinted amount 1: {}", added_amounts[1].0);
+
+    let after_slot_0 = liquidity_provider
+        .call(&context.pool_id, "get_slot_0")
+        .view()
+        .await?
+        .json::<Slot0>()?;
+    assert_eq!(before_slot_0.tick, after_slot_0.tick);
+    assert_eq!(before_slot_0.sqrt_price_x96, after_slot_0.sqrt_price_x96);
+
+    println!("✅ Minted liquidity tokens");
 
     Ok(())
 }

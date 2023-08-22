@@ -1,9 +1,13 @@
-use ethnum::{AsU256, U256};
+use crate::num256::U256;
+use crate::{fixed_point_128, liquidity_math};
+
+use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 
 use super::full_math::FullMath;
 use crate::full_math::FullMathTrait;
 
 // info stored for each user's position
+#[derive(BorshDeserialize, BorshSerialize, Clone, Copy, Debug, Default)]
 pub struct PositionInfo {
     // the amount of liquidity owned by this position
     pub liquidity: u128,
@@ -15,54 +19,31 @@ pub struct PositionInfo {
     pub tokens_owed_1: u128,
 }
 
-use crate::{fixed_point_128, liquidity_math};
-
-// Define trait for updating position
-trait UpdatePosition {
-    /// @notice Credits accumulated fees to a user's position
-    /// @param self The individual position to update
-    /// @param liquidityDelta The change in pool liquidity as a result of the position update
-    /// @param feeGrowthInside0X128 The all-time fee growth in token0, per unit of liquidity, inside the position's tick boundaries
-    /// @param feeGrowthInside1X128 The all-time fee growth in token1, per unit of liquidity, inside the position's tick boundaries
-    fn update(
-        &mut self,
-        liquidity_delta: i128,
-        fee_growth_inside_0_x128: U256,
-        fee_growth_inside_1_x128: U256,
-    );
-}
-
-impl UpdatePosition for PositionInfo {
-    /// @notice Credits accumulated fees to a user's position
-    /// @param self The individual position to update
-    /// @param liquidityDelta The change in pool liquidity as a result of the position update
-    /// @param feeGrowthInside0X128 The all-time fee growth in token0, per unit of liquidity, inside the position's tick boundaries
-    /// @param feeGrowthInside1X128 The all-time fee growth in token1, per unit of liquidity, inside the position's tick boundaries
-    fn update(
+impl PositionInfo {
+    /// Credits accumulated fees to a user's position
+    pub fn update(
         &mut self,
         liquidity_delta: i128,
         fee_growth_inside_0_x128: U256,
         fee_growth_inside_1_x128: U256,
     ) {
-        let liquidity_next: u128;
-        if liquidity_delta == 0 {
-            assert!(self.liquidity > 0, "NP"); // disallow pokes for 0 liquidity positions
-            liquidity_next = self.liquidity;
+        let liquidity_next: u128 = if liquidity_delta == 0 && self.liquidity > 0 {
+            self.liquidity
         } else {
-            liquidity_next = liquidity_math::add_delta(self.liquidity, liquidity_delta);
-        }
+            liquidity_math::add_delta(self.liquidity, liquidity_delta)
+        };
 
         // calculate accumulated fees
         let tokens_owed_0 = FullMath::mul_div(
             fee_growth_inside_0_x128 - self.fee_growth_inside_0_last_x128,
-            self.liquidity.as_u256(),
+            U256::from(self.liquidity),
             fixed_point_128::get_q128(),
         )
         .as_u128();
 
         let tokens_owed_1 = FullMath::mul_div(
             fee_growth_inside_1_x128 - self.fee_growth_inside_1_last_x128,
-            self.liquidity.as_u256(),
+            U256::from(self.liquidity),
             fixed_point_128::get_q128(),
         )
         .as_u128();
@@ -87,8 +68,8 @@ mod tests {
     // use ethnum::U256;
     // use std::panic;
 
-  #[test]
-  fn test_update() {
-    // TODO: @galin-chung-nguyen
-  }
+    #[test]
+    fn test_update() {
+        // TODO: @galin-chung-nguyen
+    }
 }

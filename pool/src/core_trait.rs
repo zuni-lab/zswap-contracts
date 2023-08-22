@@ -1,4 +1,4 @@
-use near_sdk::{ext_contract, json_types::U128, AccountId, Promise};
+use near_sdk::{ext_contract, json_types::U128, AccountId};
 
 use crate::utils::Slot0;
 
@@ -10,8 +10,8 @@ pub trait CoreZswapPool {
         lower_tick: i32,
         upper_tick: i32,
         amount: U128,
-        data: Vec<u8>,
-    ) -> Promise;
+        // data: Vec<u8>,
+    ) -> [U128; 2];
 
     fn swap(
         &mut self,

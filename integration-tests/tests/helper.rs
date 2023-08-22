@@ -25,13 +25,13 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
     let factory_contract = worker.dev_deploy(&ZSWAP_FACTORY_CONTRACT).await?;
     let manager_contract = worker.dev_deploy(&ZSWAP_MANAGER_CONTRACT).await?;
 
-    let account = worker.dev_create_account().await?;
-    let deployer = account
-        .create_subaccount("deployer")
-        .initial_balance(parse_near!("90 N"))
-        .transact()
+    let support_fee_account = worker.dev_create_account().await?;
+    let deployer = worker.dev_create_account().await?;
+    support_fee_account
+        .transfer_near(&deployer.id(), parse_near!("95 N"))
         .await?
         .into_result()?;
+    println!("\tDeployer account {}", deployer.id());
 
     let initial_balance = U128::from(parse_near!("100 N"));
     token_0_contract
@@ -48,7 +48,39 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
         .transact()
         .await?
         .into_result()?;
-    println!("Created token 0 & 1");
+    println!(
+        "\tCreated token 0 {} & 1 {}",
+        token_0_contract.id(),
+        token_1_contract.id()
+    );
+
+    factory_contract
+        .call("new")
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+    println!("\tCreated factory {}", factory_contract.id());
+
+    let pool_id = deployer
+        .call(factory_contract.id(), "create_pool")
+        .args_json((token_0_contract.id(), token_1_contract.id(), POOL_FEE))
+        .deposit(parse_near!("30 N"))
+        .max_gas()
+        .transact()
+        .await?
+        .json::<AccountId>()?;
+    println!("\tCreated pool {}", pool_id);
+
+    let initial_sqrt_price_x96 = U128::from(10 * (2_u128).pow(96));
+    deployer
+        .call(&pool_id, "initialize")
+        .args_json(json!({ "sqrt_price_x96": initial_sqrt_price_x96 }))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+    println!("\tInitialized with token_1/token_0: 100");
 
     manager_contract
         .call("new")
@@ -57,18 +89,7 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
         .transact()
         .await?
         .into_result()?;
-    println!("Created manager");
-
-    // create new pool
-    let pool_id = deployer
-        .call(factory_contract.id(), "create_pool")
-        .args_json((token_0_contract.id(), token_1_contract.id(), POOL_FEE))
-        .deposit(parse_near!("50 N"))
-        .max_gas()
-        .transact()
-        .await?
-        .json::<AccountId>()?;
-    println!("Created pool {}", pool_id);
+    println!("\tCreated manager {}", manager_contract.id());
 
     // add storage deposit for manager & pool contract
     deployer
@@ -107,8 +128,8 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
     Ok(TestContext {
         token_0_contract,
         token_1_contract,
-        factory_contract: factory_contract,
-        pool_id: pool_id,
+        factory_contract,
+        pool_id,
         manager_contract,
         deployer,
     })
