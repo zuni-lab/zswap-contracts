@@ -3,9 +3,7 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{
-    env, near_bindgen, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault, Promise,
-};
+use near_sdk::{env, near_bindgen, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault};
 
 use zswap_math_library::num160::AsU160;
 use zswap_math_library::num256::U256;
@@ -16,12 +14,12 @@ use zswap_math_library::tick_math::TickConstants;
 
 use crate::core_trait::CoreZswapPool;
 use crate::error::*;
-use crate::manager::ext_ft_zswap_manager;
 use crate::utils::*;
 
-mod callback;
+// mod callback;
 pub mod core_trait;
 mod error;
+mod ft_receiver;
 mod internal;
 mod manager;
 pub mod utils;
@@ -33,6 +31,8 @@ pub struct Contract {
     factory: AccountId,
     token_0: AccountId,
     token_1: AccountId,
+    depositted_token_0: LookupMap<AccountId, u128>,
+    depositted_token_1: LookupMap<AccountId, u128>,
     tick_spacing: u32,
     fee: u32,
 
@@ -54,7 +54,7 @@ pub enum StorageKey {
     Accounts,
     FeeToTickSpacing,
     Shares { pool_id: u32 },
-    AccountTokens { account_id: AccountId },
+    DeposittedToken { token_id: AccountId },
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -71,8 +71,11 @@ impl Contract {
     pub fn new(token_0: AccountId, token_1: AccountId, tick_spacing: u32, fee: u32) -> Self {
         Self {
             factory: env::predecessor_account_id(),
-            token_0,
-            token_1,
+            token_0: token_0.clone(),
+            token_1: token_1.clone(),
+            depositted_token_0: LookupMap::new(StorageKey::DeposittedToken { token_id: token_0 }),
+            depositted_token_1: LookupMap::new(StorageKey::DeposittedToken { token_id: token_1 }),
+
             tick_spacing,
             fee,
             fee_growth_global_0_x128: U256::from(0),
@@ -110,8 +113,7 @@ impl CoreZswapPool for Contract {
     /// - `amount` - the amount of liquidity
     /// Following those steps:
     /// 1. Calculate amount
-    /// 2. Calling to ZswapManager to collect tokens
-    /// 3. Callback to check collected amounts
+    /// 2. Calling to ZswapManager callback to check slippage
     /// Note: This function is not called by user directly, but by ZswapManager
     #[payable]
     fn mint(
@@ -120,8 +122,8 @@ impl CoreZswapPool for Contract {
         lower_tick: i32,
         upper_tick: i32,
         amount: U128,
-        data: Vec<u8>,
-    ) -> Promise {
+        // data: Vec<u8>,
+    ) -> [U128; 2] {
         let check1 = lower_tick >= upper_tick;
         let check2 = lower_tick < TickConstants::MIN_TICK;
         let check3 = upper_tick > TickConstants::MAX_TICK;
@@ -132,25 +134,19 @@ impl CoreZswapPool for Contract {
         if amount.0 == 0 {
             env::panic_str(ZERO_LIQUIDITY);
         }
-        let amounts = self.modify_position(owner, lower_tick, upper_tick, amount.0 as i128);
+        let amounts = self.modify_position(owner.clone(), lower_tick, upper_tick, amount.0 as i128);
         let amount_0 = amounts[0] as u128;
         let amount_1 = amounts[1] as u128;
 
-        let zswap_manager = env::predecessor_account_id();
+        if amount_0 > 0 {
+            self.internal_collect_token_0_to_mint(&owner, amount_0);
+        }
 
-        self.get_balance_0_promise()
-            .and(self.get_balance_1_promise())
-            .and(
-                ext_ft_zswap_manager::ext(zswap_manager).collect_approved_tokens_to_mint(
-                    U128::from(amount_0),
-                    U128::from(amount_1),
-                    data,
-                ),
-            )
-            .then(
-                Self::ext(env::current_account_id())
-                    .mint_callback_post_collected_tokens(amount_0, amount_1),
-            )
+        if amount_1 > 0 {
+            self.internal_collect_token_1_to_mint(&owner, amount_1);
+        }
+
+        [U128::from(amount_0), U128::from(amount_1)]
     }
 
     #[allow(unused)]

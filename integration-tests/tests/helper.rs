@@ -48,7 +48,19 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
         .transact()
         .await?
         .into_result()?;
-    println!("\tCreated token 0 & 1");
+    println!(
+        "\tCreated token 0 {} & 1 {}",
+        token_0_contract.id(),
+        token_1_contract.id()
+    );
+
+    factory_contract
+        .call("new")
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+    println!("\tCreated factory {}", factory_contract.id());
 
     let pool_id = deployer
         .call(factory_contract.id(), "create_pool")

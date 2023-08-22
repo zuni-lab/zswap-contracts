@@ -1,20 +1,20 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, LookupMap};
 use near_sdk::{
-    env, log, near_bindgen, AccountId, Balance, BorshStorageKey, Promise, PromiseError,
+    env, log, near_bindgen, AccountId, Balance, BorshStorageKey, PanicOnDefault, Promise,
+    PromiseError,
 };
 use std::cmp::Ordering;
+use zswap_math_library::pool_account;
 
 use error::*;
 use pool::*;
 
 mod error;
-mod pool;
+pub mod pool;
 
 const NEAR_PER_STORAGE: Balance = 10_000_000_000_000_000_000; // 10e18yⓃ
 const ZSWAP_POOL_CONTRACT: &[u8] = include_bytes!("../../res/zswap_pool.wasm");
-// const TGAS: Gas = Gas(10u64.pow(12)); // 10e12yⓃ
-// const NO_DEPOSIT: Balance = 0; // 0yⓃ
 
 #[derive(BorshDeserialize, BorshSerialize)]
 pub struct Pool {
@@ -25,10 +25,10 @@ pub struct Pool {
 
 // Define the contract structure
 #[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize)]
+#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     fees: LookupMap<u32, u32>,
-    pools: LookupMap<Pool, AccountId>,
+    pools: LookupMap<AccountId, bool>,
     // Since a contract is something big to store, we use LazyOptions
     // this way it is not deserialized on each method call
     code: LazyOption<Vec<u8>>,
@@ -41,8 +41,10 @@ pub(crate) enum StorageKey {
     Code,
 }
 
-impl Default for Contract {
-    fn default() -> Self {
+#[near_bindgen]
+impl Contract {
+    #[init]
+    pub fn new() -> Self {
         let mut fees = LookupMap::new(StorageKey::Fees);
         fees.insert(&500, &10);
         fees.insert(&3000, &60);
@@ -53,11 +55,8 @@ impl Default for Contract {
             code: LazyOption::new(StorageKey::Code, Some(&ZSWAP_POOL_CONTRACT.to_vec())),
         }
     }
-}
 
-#[near_bindgen]
-impl Contract {
-    pub fn get_pool(&self, token_0: AccountId, token_1: AccountId, fee: u32) -> Option<AccountId> {
+    pub fn get_pool(&self, token_0: AccountId, token_1: AccountId, fee: u32) -> Option<PoolView> {
         let ordered_token_0;
         let ordered_token_1;
         match token_0.cmp(&token_1) {
@@ -72,11 +71,26 @@ impl Contract {
             Ordering::Equal => return None,
         }
 
-        self.pools.get(&Pool {
+        let pool_id = pool_account::compute_account(
+            env::current_account_id(),
+            ordered_token_0.clone(),
+            ordered_token_1.clone(),
+            fee,
+        );
+
+        if !self.pools.get(&pool_id).unwrap_or_default() {
+            return None;
+        }
+
+        let pool_view = PoolView {
+            pool_id,
             token_0: ordered_token_0,
             token_1: ordered_token_1,
             fee,
-        })
+            tick_spacing: self.fees.get(&fee).unwrap(),
+        };
+
+        Some(pool_view)
     }
 
     #[payable]
@@ -100,37 +114,22 @@ impl Contract {
             Ordering::Equal => env::panic_str(TOKENS_MUST_BE_DIFFERENT),
         }
 
-        let pool = Pool {
-            token_0: ordered_token_0.clone(),
-            token_1: ordered_token_1.clone(),
+        let subaccount = pool_account::compute_account(
+            env::current_account_id(),
+            ordered_token_0.clone(),
+            ordered_token_1.clone(),
             fee,
-        };
-
-        if self.pools.get(&pool).is_some() {
-            env::panic_str(POOL_ALREADY_EXISTS);
-        }
-
-        let hash_data = env::keccak256(
-            [
-                ordered_token_0.as_bytes(),
-                ordered_token_1.as_bytes(),
-                &fee.to_le_bytes(),
-            ]
-            .concat()
-            .as_slice(),
         );
-        let subaccount: AccountId = format!(
-            "{}.{}",
-            hex::encode(&hash_data[0..8]),
-            env::current_account_id()
-        )
-        .parse()
-        .unwrap();
 
         if !env::is_valid_account_id(subaccount.as_bytes()) {
             env::panic_str(INVALID_SUBACCOUNT);
         }
-        self.pools.insert(&pool, &subaccount);
+
+        if self.pools.get(&subaccount).unwrap_or_default() {
+            env::panic_str(POOL_ALREADY_EXISTS);
+        }
+
+        self.pools.insert(&subaccount, &true);
 
         // Assert enough money is attached to create the account and deploy the contract
         let attached = env::attached_deposit();

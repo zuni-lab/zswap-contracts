@@ -16,8 +16,7 @@ pub trait ZswapPool {
         lower_tick: i32,
         upper_tick: i32,
         amount: U128,
-        data: Vec<u8>,
-    );
+    ) -> [U128; 2];
 
     fn swap(
         &mut self,

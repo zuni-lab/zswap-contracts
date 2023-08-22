@@ -1,15 +1,13 @@
-use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_contract_standards::non_fungible_token::metadata::{
     NFTContractMetadata, NFT_METADATA_SPEC,
 };
 use near_contract_standards::non_fungible_token::NonFungibleToken;
 // Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LazyOption, LookupMap};
+use near_sdk::collections::LazyOption;
 use near_sdk::json_types::{I128, U128};
 use near_sdk::{
-    env, log, near_bindgen, AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseError,
-    ONE_YOCTO,
+    env, near_bindgen, AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseError,
 };
 use pool::{ext_zswap_pool, Slot0};
 use utils::{SwapCallbackData, SwapSingleParams};
@@ -18,34 +16,34 @@ use zswap_math_library::num160::AsU160;
 use zswap_math_library::num256::U256;
 use zswap_math_library::tick_math::{self};
 
-use crate::ft_account::Account;
+// use crate::ft_account::Account;
 use crate::utils::*;
 
-// mod callback;
+mod callback;
 mod error;
-mod ft_account;
-mod ft_receiver;
 mod internal;
-// mod nft;
 mod pool;
 pub mod utils;
-mod views;
+// mod ft_account;
+// mod ft_receiver;
+// mod nft;
+// mod views;
 
 // Define the contract structure
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     factory: AccountId,
-    accounts: LookupMap<AccountId, Account>,
+    // accounts: LookupMap<AccountId, Account>,
     nft: NonFungibleToken,
     metadata: LazyOption<NFTContractMetadata>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
 pub(crate) enum StorageKey {
-    Accounts,
-    AccountDepositedTokens { account_id: AccountId },
-    AccountApprovedTokens { account_id: AccountId },
+    // Accounts,
+    // AccountDepositedTokens { account_id: AccountId },
+    // AccountApprovedTokens { account_id: AccountId },
     NonFungibleToken,
     Metadata,
     TokenMetadata,
@@ -76,7 +74,7 @@ impl Contract {
         };
         Self {
             factory,
-            accounts: LookupMap::new(StorageKey::Accounts),
+            // accounts: LookupMap::new(StorageKey::Accounts),
             nft,
             metadata: LazyOption::new(StorageKey::Metadata, Some(&metadata)),
         }
@@ -133,42 +131,42 @@ impl Contract {
     ) {
     }
 
-    #[payable]
-    pub fn collect_approved_tokens_to_mint(
-        &mut self,
-        amount_0: U128,
-        amount_1: U128,
-        data: Vec<u8>,
-    ) -> Promise {
-        let pool_id = env::predecessor_account_id();
+    // #[payable]
+    // pub fn collect_approved_tokens_to_mint(
+    //     &mut self,
+    //     amount_0: U128,
+    //     amount_1: U128,
+    //     data: Vec<u8>,
+    // ) -> Promise {
+    //     let pool_id = env::predecessor_account_id();
 
-        let pool_callback_data: PoolCallbackData = near_sdk::serde_json::from_slice(&data).unwrap();
-        let token_0 = pool_callback_data.token_0;
-        let token_1 = pool_callback_data.token_1;
-        let payer = pool_callback_data.payer;
+    //     let pool_callback_data: PoolCallbackData = near_sdk::serde_json::from_slice(&data).unwrap();
+    //     let token_0 = pool_callback_data.token_0;
+    //     let token_1 = pool_callback_data.token_1;
+    //     let payer = pool_callback_data.payer;
 
-        let mut payer_account = self.get_account(&payer);
-        payer_account.internal_collect_and_reset_approved_token(&pool_id, &token_0, amount_0.0);
-        payer_account.internal_collect_and_reset_approved_token(&pool_id, &token_1, amount_1.0);
+    //     // let mut payer_account = self.get_account(&payer);
+    //     // payer_account.internal_collect_and_reset_approved_token(&pool_id, &token_0, amount_0.0);
+    //     // payer_account.internal_collect_and_reset_approved_token(&pool_id, &token_1, amount_1.0);
 
-        let transfer_token_0_promise = ext_ft_core::ext(token_0)
-            .with_attached_deposit(ONE_YOCTO)
-            .ft_transfer(pool_id.clone(), amount_0, None);
-        let transfer_token_1_promise = ext_ft_core::ext(token_1.clone())
-            .with_attached_deposit(ONE_YOCTO)
-            .ft_transfer(pool_id.clone(), amount_1, None);
+    //     let transfer_token_0_promise = ext_ft_core::ext(token_0)
+    //         .with_attached_deposit(ONE_YOCTO)
+    //         .ft_transfer(pool_id.clone(), amount_0, None);
+    //     let transfer_token_1_promise = ext_ft_core::ext(token_1.clone())
+    //         .with_attached_deposit(ONE_YOCTO)
+    //         .ft_transfer(pool_id.clone(), amount_1, None);
 
-        if amount_1.0 == 0 {
-            log!("transfer token 0 only");
-            transfer_token_0_promise
-        } else if amount_0.0 == 0 {
-            log!("transfer token 1 only");
-            transfer_token_1_promise
-        } else {
-            log!("transfer token 0 and token 1");
-            transfer_token_0_promise.and(transfer_token_1_promise)
-        }
-    }
+    //     if amount_1.0 == 0 {
+    //         log!("transfer token 0 only");
+    //         transfer_token_0_promise
+    //     } else if amount_0.0 == 0 {
+    //         log!("transfer token 1 only");
+    //         transfer_token_1_promise
+    //     } else {
+    //         log!("transfer token 0 and token 1");
+    //         transfer_token_0_promise.and(transfer_token_1_promise)
+    //     }
+    // }
 
     #[private]
     pub fn calculate_liquidity(
@@ -191,26 +189,17 @@ impl Contract {
             U256::from(params.amount_1_desired.0),
         );
 
-        let pool_callback_data = PoolCallbackData {
-            token_0: params.token_0.clone(),
-            token_1: params.token_1.clone(),
-            payer: recipient.clone(),
-        };
-        let data = near_sdk::serde_json::to_vec(&pool_callback_data).unwrap();
-
-        let mut recipient_account = self.get_account(&recipient);
-        recipient_account.internal_approve_token(&pool, &params.token_0, params.amount_0_desired.0);
-        recipient_account.internal_approve_token(&pool, &params.token_1, params.amount_1_desired.0);
-
-        // self.nft.internal_mint(token_id, token_owner_id, token_metadata);
-
-        ext_zswap_pool::ext(pool).mint(
-            recipient,
-            params.lower_tick,
-            params.upper_tick,
-            U128::from(liquidity),
-            data,
-        )
+        ext_zswap_pool::ext(pool)
+            .mint(
+                recipient,
+                params.lower_tick,
+                params.upper_tick,
+                U128::from(liquidity),
+            )
+            .then(
+                Self::ext(env::current_account_id())
+                    .mint_callback(params.amount_0_min.into(), params.amount_1_min.into()),
+            )
     }
 
     #[private]

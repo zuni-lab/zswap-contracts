@@ -1,33 +1,34 @@
 use std::cmp::Ordering;
 
-use near_sdk::{env, AccountId, Balance, Promise};
+use near_sdk::{env, AccountId, Promise};
+use zswap_math_library::pool_account;
 // use zswap_pool::core_trait::ext_zswap_pool_core;
 
 use crate::error::TOKENS_MUST_BE_DIFFERENT;
-use crate::ft_account::Account;
+// use crate::ft_account::Account;
 use crate::pool::ext_zswap_pool;
 use crate::utils::SwapCallbackData;
 use crate::Contract;
 
 impl Contract {
-    pub fn internal_deposit(
-        &mut self,
-        sender_id: &AccountId,
-        token_id: &AccountId,
-        amount: Balance,
-    ) {
-        let mut account = self.get_account(sender_id);
+    // pub fn internal_deposit(
+    //     &mut self,
+    //     sender_id: &AccountId,
+    //     token_id: &AccountId,
+    //     amount: Balance,
+    // ) {
+    //     let mut account = self.get_account(sender_id);
 
-        if amount > 0 {
-            let current_amount = account.deposited_tokens.get(token_id).unwrap_or(0);
-            account
-                .deposited_tokens
-                .insert(token_id, &(current_amount + amount));
-        }
+    //     if amount > 0 {
+    //         let current_amount = account.deposited_tokens.get(token_id).unwrap_or(0);
+    //         account
+    //             .deposited_tokens
+    //             .insert(token_id, &(current_amount + amount));
+    //     }
 
-        // save account
-        self.accounts.insert(sender_id, &account);
-    }
+    //     // save account
+    //     self.accounts.insert(sender_id, &account);
+    // }
 
     pub fn internal_swap(
         &mut self,
@@ -53,11 +54,11 @@ impl Contract {
 
     // ========= VIEW METHODS =========
 
-    pub fn get_account(&self, account_id: &AccountId) -> Account {
-        self.accounts
-            .get(account_id)
-            .unwrap_or(Account::new(account_id))
-    }
+    // pub fn get_account(&self, account_id: &AccountId) -> Account {
+    //     self.accounts
+    //         .get(account_id)
+    //         .unwrap_or(Account::new(account_id))
+    // }
 
     pub fn get_pool(&self, token_0: &AccountId, token_1: &AccountId, fee: u32) -> AccountId {
         let ordered_token_0;
@@ -74,20 +75,11 @@ impl Contract {
             Ordering::Equal => env::panic_str(TOKENS_MUST_BE_DIFFERENT),
         }
 
-        let hash_data = env::keccak256(
-            [
-                ordered_token_0.as_bytes(),
-                ordered_token_1.as_bytes(),
-                &fee.to_le_bytes(),
-            ]
-            .concat()
-            .as_slice(),
-        );
-
-        let subaccount: AccountId = format!("{}.{}", hex::encode(&hash_data[0..8]), self.factory)
-            .parse()
-            .unwrap();
-
-        subaccount
+        pool_account::compute_account(
+            self.factory.clone(),
+            ordered_token_0.clone(),
+            ordered_token_1.clone(),
+            fee,
+        )
     }
 }

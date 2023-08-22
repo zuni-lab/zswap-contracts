@@ -3,7 +3,7 @@ use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_sdk::{env, log, AccountId, CryptoHash, Promise};
 use zswap_math_library::{liquidity_math, num256::U256, sqrt_price_math, tick, tick_math};
 
-use crate::Contract;
+use crate::{error::INSUFFICIENT_INPUT_AMOUNT, Contract};
 
 impl Contract {
     pub fn get_balance_0_promise(&self) -> Promise {
@@ -12,6 +12,23 @@ impl Contract {
 
     pub fn get_balance_1_promise(&self) -> Promise {
         ext_ft_core::ext(self.token_1.clone()).ft_balance_of(env::current_account_id())
+    }
+
+    pub fn get_position_key(
+        &self,
+        owner: &AccountId,
+        lower_tick: i32,
+        upper_tick: i32,
+    ) -> CryptoHash {
+        env::keccak256_array(
+            [
+                owner.as_bytes(),
+                &lower_tick.to_le_bytes(),
+                &upper_tick.to_le_bytes(),
+            ]
+            .concat()
+            .as_slice(),
+        )
     }
 
     pub fn modify_position(
@@ -104,20 +121,37 @@ impl Contract {
         [amount_0.as_i128(), amount_1.as_i128()]
     }
 
-    pub fn get_position_key(
-        &self,
-        owner: &AccountId,
-        lower_tick: i32,
-        upper_tick: i32,
-    ) -> CryptoHash {
-        env::keccak256_array(
-            [
-                owner.as_bytes(),
-                &lower_tick.to_le_bytes(),
-                &upper_tick.to_le_bytes(),
-            ]
-            .concat()
-            .as_slice(),
-        )
+    pub fn internal_collect_token_0_to_mint(&mut self, account: &AccountId, amount: u128) {
+        let depositted_token_opt = self.depositted_token_0.get(account);
+        match depositted_token_opt {
+            Some(deposistted) => {
+                if deposistted < amount {
+                    env::panic_str(INSUFFICIENT_INPUT_AMOUNT);
+                }
+
+                self.depositted_token_0
+                    .insert(account, &(deposistted - amount));
+            }
+            None => {
+                env::panic_str(INSUFFICIENT_INPUT_AMOUNT);
+            }
+        }
+    }
+
+    pub fn internal_collect_token_1_to_mint(&mut self, account: &AccountId, amount: u128) {
+        let depositted_token_opt = self.depositted_token_1.get(account);
+        match depositted_token_opt {
+            Some(deposistted) => {
+                if deposistted < amount {
+                    env::panic_str(INSUFFICIENT_INPUT_AMOUNT);
+                }
+
+                self.depositted_token_1
+                    .insert(&account, &(deposistted - amount));
+            }
+            None => {
+                env::panic_str(INSUFFICIENT_INPUT_AMOUNT);
+            }
+        }
     }
 }

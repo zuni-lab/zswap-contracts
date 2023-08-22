@@ -3426,9 +3426,9 @@ name = "zswap-factory"
 version = "1.0.0"
 dependencies = [
  "cargo-husky",
- "hex 0.4.3",
  "near-sdk",
  "uint",
+ "zswap-math-library",
 ]
 
 [[package]]
@@ -3446,6 +3446,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "workspaces",
+ "zswap-factory",
  "zswap-manager",
  "zswap-pool",
 ]
@@ -3456,7 +3457,6 @@ version = "1.0.0"
 dependencies = [
  "cargo-husky",
  "ethnum",
- "hex 0.4.3",
  "near-contract-standards",
  "near-sdk",
  "uint",
@@ -3469,6 +3469,7 @@ version = "0.1.0"
 dependencies = [
  "cargo-husky",
  "ethnum",
+ "hex 0.4.3",
  "near-sdk",
  "uint",
 ]

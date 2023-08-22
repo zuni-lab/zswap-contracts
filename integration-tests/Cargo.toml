@@ -8,6 +8,7 @@ edition = "2018"
 # contracts
 zswap-manager = { path = "../manager" }
 zswap-pool = { path = "../pool" }
+zswap-factory = { path = "../factory" }
 
 anyhow = "1.0"
 borsh = "0.9"
