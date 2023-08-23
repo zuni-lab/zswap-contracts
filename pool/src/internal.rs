@@ -1,6 +1,6 @@
 use ethnum::I256;
 use near_contract_standards::fungible_token::core::ext_ft_core;
-use near_sdk::{env, log, AccountId, CryptoHash, Promise};
+use near_sdk::{env, AccountId, CryptoHash, Promise};
 use zswap_math_library::{liquidity_math, num256::U256, sqrt_price_math, tick, tick_math};
 
 use crate::{error::INSUFFICIENT_INPUT_AMOUNT, Contract};
@@ -38,7 +38,6 @@ impl Contract {
         upper_tick: i32,
         liquidity_delta: i128,
     ) -> [i128; 2] {
-        log!("Calling `modify_position()` in `ZswapPool`...");
         let position_key = self.get_position_key(&owner, lower_tick, upper_tick);
         let mut position = self.positions.get(&position_key).unwrap_or_default();
 
