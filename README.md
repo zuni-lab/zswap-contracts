@@ -79,7 +79,13 @@ near call $ZUSD storage_deposit '{"account_id":"'$ZSWAP_POOL'"}' --deposit 1 --a
 
 ```sh
 # 1 WNEAR = 100 ZUSD, tick ~ 46054
-near call $ZSWAP_POOL initialize '{"sqrt_price_x96":"792281625142643375935439503360"}' --accountId zswap.testnet
+$ near call $ZSWAP_POOL initialize '{"sqrt_price_x96":"792281625142643375935439503360"}' --accountId zswap.testnet
+
+# view current price
+$ near view $ZSWAP_POOL get_slot_0 '{}'
+
+{ sqrt_price_x96: '792281625142643375935439503360', tick: 46054 }
+
 ```
 
 ## Step 3: Mint Liquidity
