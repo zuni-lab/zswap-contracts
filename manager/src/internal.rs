@@ -54,12 +54,6 @@ impl Contract {
 
     // ========= VIEW METHODS =========
 
-    // pub fn get_account(&self, account_id: &AccountId) -> Account {
-    //     self.accounts
-    //         .get(account_id)
-    //         .unwrap_or(Account::new(account_id))
-    // }
-
     pub fn get_pool(&self, token_0: &AccountId, token_1: &AccountId, fee: u32) -> AccountId {
         let ordered_token_0;
         let ordered_token_1;

@@ -1,4 +1,5 @@
 use near_sdk::{json_types::U128, ONE_YOCTO};
+use near_units::parse_near;
 use serde_json::json;
 
 use zswap_manager::utils::MintParams;
@@ -84,6 +85,7 @@ async fn test_mint_properly() -> anyhow::Result<()> {
     let added_amounts = liquidity_provider
         .call(context.manager_contract.id(), "mint")
         .args_json(json!({ "params": mint_params }))
+        .deposit(parse_near!("0.1 N"))
         .max_gas()
         .transact()
         .await?

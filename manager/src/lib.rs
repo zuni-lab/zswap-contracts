@@ -1,49 +1,42 @@
 use near_contract_standards::non_fungible_token::metadata::{
-    NFTContractMetadata, NFT_METADATA_SPEC,
+    NFTContractMetadata, TokenMetadata, NFT_METADATA_SPEC,
 };
 use near_contract_standards::non_fungible_token::NonFungibleToken;
-// Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LazyOption;
 use near_sdk::json_types::{I128, U128};
 use near_sdk::{
-    env, near_bindgen, AccountId, BorshStorageKey, PanicOnDefault, Promise, PromiseError,
+    env, near_bindgen, serde_json, AccountId, BorshStorageKey, PanicOnDefault, Promise,
+    PromiseError,
 };
 use pool::{ext_zswap_pool, Slot0};
 use utils::{SwapCallbackData, SwapSingleParams};
 use zswap_math_library::liquidity_math;
 use zswap_math_library::num160::AsU160;
 use zswap_math_library::num256::U256;
-use zswap_math_library::tick_math::{self};
+use zswap_math_library::tick_math;
 
-// use crate::ft_account::Account;
 use crate::utils::*;
 
 mod callback;
 mod error;
 mod internal;
+mod nft;
 mod pool;
 pub mod utils;
-// mod ft_account;
-// mod ft_receiver;
-// mod nft;
-// mod views;
 
 // Define the contract structure
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     factory: AccountId,
-    // accounts: LookupMap<AccountId, Account>,
+    token_id: u128,
     nft: NonFungibleToken,
     metadata: LazyOption<NFTContractMetadata>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
 pub(crate) enum StorageKey {
-    // Accounts,
-    // AccountDepositedTokens { account_id: AccountId },
-    // AccountApprovedTokens { account_id: AccountId },
     NonFungibleToken,
     Metadata,
     TokenMetadata,
@@ -65,8 +58,8 @@ impl Contract {
         );
         let metadata = NFTContractMetadata {
             spec: NFT_METADATA_SPEC.to_string(),
-            name: "ZSwap Liquidity NFT".to_string(),
-            symbol: "ZSWAP".to_string(),
+            name: "ZSwap Liquidity Management".to_string(),
+            symbol: "ZSP".to_string(),
             icon: None,
             base_uri: None,
             reference: None,
@@ -74,7 +67,7 @@ impl Contract {
         };
         Self {
             factory,
-            // accounts: LookupMap::new(StorageKey::Accounts),
+            token_id: 0,
             nft,
             metadata: LazyOption::new(StorageKey::Metadata, Some(&metadata)),
         }
@@ -98,7 +91,9 @@ impl Contract {
         let receipient = env::predecessor_account_id();
 
         ext_zswap_pool::ext(pool.clone()).get_slot_0().then(
-            Self::ext(env::current_account_id()).calculate_liquidity(pool, receipient, params),
+            Self::ext(env::current_account_id())
+                .with_attached_deposit(env::attached_deposit())
+                .calculate_liquidity(pool, receipient, params),
         )
     }
 
@@ -131,43 +126,7 @@ impl Contract {
     ) {
     }
 
-    // #[payable]
-    // pub fn collect_approved_tokens_to_mint(
-    //     &mut self,
-    //     amount_0: U128,
-    //     amount_1: U128,
-    //     data: Vec<u8>,
-    // ) -> Promise {
-    //     let pool_id = env::predecessor_account_id();
-
-    //     let pool_callback_data: PoolCallbackData = near_sdk::serde_json::from_slice(&data).unwrap();
-    //     let token_0 = pool_callback_data.token_0;
-    //     let token_1 = pool_callback_data.token_1;
-    //     let payer = pool_callback_data.payer;
-
-    //     // let mut payer_account = self.get_account(&payer);
-    //     // payer_account.internal_collect_and_reset_approved_token(&pool_id, &token_0, amount_0.0);
-    //     // payer_account.internal_collect_and_reset_approved_token(&pool_id, &token_1, amount_1.0);
-
-    //     let transfer_token_0_promise = ext_ft_core::ext(token_0)
-    //         .with_attached_deposit(ONE_YOCTO)
-    //         .ft_transfer(pool_id.clone(), amount_0, None);
-    //     let transfer_token_1_promise = ext_ft_core::ext(token_1.clone())
-    //         .with_attached_deposit(ONE_YOCTO)
-    //         .ft_transfer(pool_id.clone(), amount_1, None);
-
-    //     if amount_1.0 == 0 {
-    //         log!("transfer token 0 only");
-    //         transfer_token_0_promise
-    //     } else if amount_0.0 == 0 {
-    //         log!("transfer token 1 only");
-    //         transfer_token_1_promise
-    //     } else {
-    //         log!("transfer token 0 and token 1");
-    //         transfer_token_0_promise.and(transfer_token_1_promise)
-    //     }
-    // }
-
+    #[payable]
     #[private]
     pub fn calculate_liquidity(
         &mut self,
@@ -188,6 +147,39 @@ impl Contract {
             U256::from(params.amount_0_desired.0),
             U256::from(params.amount_1_desired.0),
         );
+
+        // mint nft
+        let liquidity_info = NftLiquidityInfo {
+            token_0: params.token_0.clone(),
+            token_1: params.token_1.clone(),
+            fee: params.fee,
+            lower_tick: params.lower_tick,
+            upper_tick: params.upper_tick,
+            liquidity,
+        };
+        let nft_description = format!("ZSwap Liquidity NFT for {}", &pool);
+
+        let liqudity_nft_metadata = TokenMetadata {
+            title: Some("ZSwap Liquidity NFT".to_string()),
+            description: Some(nft_description),
+            media: None,
+            media_hash: None,
+            copies: None,
+            issued_at: None,
+            expires_at: None,
+            starts_at: None,
+            updated_at: None,
+            extra: Some(serde_json::to_string(&liquidity_info).unwrap()),
+            reference: None,
+            reference_hash: None,
+        };
+
+        self.nft.internal_mint(
+            self.token_id.to_string(),
+            recipient.clone(),
+            Some(liqudity_nft_metadata),
+        );
+        self.token_id += 1;
 
         ext_zswap_pool::ext(pool)
             .mint(

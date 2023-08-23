@@ -134,3 +134,5 @@ $ near call $ZSWAP_MANAGER mint '{"params":{"token_0":"'$WNEAR'","token_1":"'$ZU
 # Return amount_0 & amount_1
 [ '6', '500' ]
 ```
+
+- After minting liquidity, you will get an NFT

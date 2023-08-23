@@ -53,6 +53,17 @@ pub struct SwapCallbackData {
     pub payer: AccountId,
 }
 
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+pub struct NftLiquidityInfo {
+    pub token_0: AccountId,
+    pub token_1: AccountId,
+    pub fee: u32,
+    pub lower_tick: i32,
+    pub upper_tick: i32,
+    pub liquidity: u128,
+}
+
 // #[derive(Serialize, Deserialize, Debug)]
 // #[serde(crate = "near_sdk::serde")]
 // pub struct PoolCallbackData {
