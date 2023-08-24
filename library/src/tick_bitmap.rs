@@ -1,6 +1,9 @@
+use near_sdk::collections::LookupMap;
+
 use crate::bit_math::BitMathTrait;
 use crate::num24::I24;
 use crate::num256::U256;
+use crate::tick_math::TickConstants;
 
 /// @title Packed tick initialized state library
 /// @notice Stores a packed mapping of tick index to its initialized state
@@ -10,7 +13,11 @@ use crate::num256::U256;
 /// @param tick The tick for which to compute the position
 /// @return wordPos The key in the mapping containing the word in which the bit is stored
 /// @return bitPos The bit position in the word where the flag is stored
-pub fn position(tick: I24) -> (i16, u8) {
+pub fn position(tick: i32) -> (i16, u8) {
+    assert!(
+        (TickConstants::MIN_TICK..=TickConstants::MAX_TICK).contains(&tick),
+        "INVALID TICK RANGE",
+    );
     let word_pos = (tick >> 8) as i16;
     let bit_pos = (tick % 256) as u8;
     (word_pos, bit_pos)
@@ -22,7 +29,11 @@ pub fn position(tick: I24) -> (i16, u8) {
 /// @param tick The tick to flip
 /// @param
 /// @param tickSpacing The spacing between usable ticks
-pub fn flip_tick(tick: I24, tick_spacing: I24, old_word: U256) -> U256 {
+pub fn flip_tick(tick: i32, tick_spacing: i32, old_word: U256) -> U256 {
+    assert!(
+        (TickConstants::MIN_TICK..=TickConstants::MAX_TICK).contains(&tick),
+        "INVALID TICK RANGE",
+    );
     assert_eq!(tick % tick_spacing, 0); // ensure that the tick is spaced
     let (_word_pos, bit_pos) = position(tick / tick_spacing);
     let mask = U256::one() << bit_pos;
@@ -40,13 +51,17 @@ pub fn flip_tick(tick: I24, tick_spacing: I24, old_word: U256) -> U256 {
 /// @return next The next initialized or uninitialized tick up to 256 ticks away from the current tick
 /// @return initialized Whether the next tick is initialized, as the function only searches within up to 256 ticks
 pub fn next_initialized_tick_within_one_word(
-    tick: I24,
-    tick_spacing: I24,
+    tick_bitmap: &LookupMap<i16, U256>,
+    tick: i32,
+    tick_spacing: i32,
     lte: bool,
-    get_word: fn(i16) -> U256,
-) -> (I24, bool) {
+) -> (i32, bool) {
+    assert!(
+        (TickConstants::MIN_TICK..=TickConstants::MAX_TICK).contains(&tick),
+        "INVALID TICK RANGE",
+    );
     assert_ne!(tick_spacing, 0);
-    let mut compressed: I24 = tick / tick_spacing;
+    let mut compressed = tick / tick_spacing;
     if tick < 0 && tick % tick_spacing != 0 {
         // round towards negative infinity
         compressed -= 1;
@@ -58,7 +73,7 @@ pub fn next_initialized_tick_within_one_word(
         let (word_pos, bit_pos) = position(compressed);
         // all the 1s at or to the right of the current bitPos
         let mask = (U256::one() << bit_pos) - U256::one() + (U256::one() << bit_pos);
-        let masked = get_word(word_pos) & mask;
+        let masked = tick_bitmap.get(&word_pos).unwrap_or_default() & mask;
 
         // if there are no initialized ticks to the right of or at the current tick, return rightmost in the word
         initialized = masked != U256::zero();
@@ -74,7 +89,7 @@ pub fn next_initialized_tick_within_one_word(
         let (word_pos, bit_pos) = position(compressed + 1);
         // all the 1s at or to the left of the bitPos
         let mask = !((U256::one() << bit_pos) - U256::one());
-        let masked = get_word(word_pos) & mask;
+        let masked = tick_bitmap.get(&word_pos).unwrap_or_default() & mask;
 
         // if there are no initialized ticks to the left of the current tick, return leftmost in the word
         initialized = masked != U256::zero();

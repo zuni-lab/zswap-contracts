@@ -1,16 +1,23 @@
+use ethnum::I256;
+use near_contract_standards::fungible_token::core::ext_ft_core;
 // Find all our documentation at https://docs.near.org
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::LookupMap;
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{env, near_bindgen, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault};
+use near_sdk::{
+    env, near_bindgen, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault, PromiseOrValue,
+    ONE_YOCTO,
+};
 
+use zswap_math_library::full_math::{FullMath, FullMathTrait};
 use zswap_math_library::num160::AsU160;
+use zswap_math_library::num24::AsI24;
 use zswap_math_library::num256::U256;
 use zswap_math_library::position::PositionInfo;
 use zswap_math_library::tick::TickInfo;
-use zswap_math_library::tick_math;
 use zswap_math_library::tick_math::TickConstants;
+use zswap_math_library::{fixed_point_128, liquidity_math, swap_math, tick_bitmap, tick_math};
 
 use crate::core_trait::CoreZswapPool;
 use crate::error::*;
@@ -36,8 +43,8 @@ pub struct Contract {
     tick_spacing: u32,
     fee: u32,
 
-    fee_growth_global_0_x128: U256,
-    fee_growth_global_1_x128: U256,
+    fee_growth_global_0_x128: u128,
+    fee_growth_global_1_x128: u128,
 
     slot_0: Slot0,
     liquidity: u128,
@@ -78,8 +85,8 @@ impl Contract {
 
             tick_spacing,
             fee,
-            fee_growth_global_0_x128: U256::from(0),
-            fee_growth_global_1_x128: U256::from(0),
+            fee_growth_global_0_x128: 0,
+            fee_growth_global_1_x128: 0,
             slot_0: Slot0 {
                 sqrt_price_x96: U128::from(0),
                 tick: 0,
@@ -109,11 +116,7 @@ impl Contract {
 #[near_bindgen]
 impl CoreZswapPool for Contract {
     /// Mint liquidity for the given account
-    /// - `to` - the liquidity recipient
-    /// - `amount` - the amount of liquidity
-    /// Following those steps:
-    /// 1. Calculate amount
-    /// 2. Calling to ZswapManager callback to check slippage
+    ///
     /// Note: This function is not called by user directly, but by ZswapManager
     #[payable]
     fn mint(
@@ -122,12 +125,11 @@ impl CoreZswapPool for Contract {
         lower_tick: i32,
         upper_tick: i32,
         amount: U128,
-        // data: Vec<u8>,
     ) -> [U128; 2] {
-        let check1 = lower_tick >= upper_tick;
-        let check2 = lower_tick < TickConstants::MIN_TICK;
-        let check3 = upper_tick > TickConstants::MAX_TICK;
-        if check1 || check2 || check3 {
+        if lower_tick >= upper_tick
+            || lower_tick < TickConstants::MIN_TICK
+            || upper_tick > TickConstants::MAX_TICK
+        {
             env::panic_str(INVALID_TICK_RANGE);
         }
 
@@ -149,17 +151,189 @@ impl CoreZswapPool for Contract {
         [U128::from(amount_0), U128::from(amount_1)]
     }
 
-    #[allow(unused)]
     #[payable]
     fn swap(
         &mut self,
         recipient: AccountId,
         zero_for_one: bool,
         amount_specified: U128,
-        sqrt_price_limit_x96: U128,
-        data: Vec<u8>,
-    ) {
-        todo!("swap");
+        sqrt_price_limit_x96: Option<U128>,
+    ) -> PromiseOrValue<U128> {
+        let sqrt_price_limit_x96 = match sqrt_price_limit_x96 {
+            Some(sqrt_price_limit) => {
+                if zero_for_one && (sqrt_price_limit.0 > self.slot_0.sqrt_price_x96.0) {
+                    env::panic_str(INVALID_PRICE_LIMIT);
+                }
+
+                if !zero_for_one && (sqrt_price_limit.0 < self.slot_0.sqrt_price_x96.0) {
+                    env::panic_str(INVALID_PRICE_LIMIT);
+                }
+
+                U256::from(sqrt_price_limit.0).as_u160()
+            }
+            None => {
+                if zero_for_one {
+                    TickConstants::min_sqrt_ratio()
+                } else {
+                    TickConstants::max_sqrt_ratio()
+                }
+            }
+        };
+
+        let mut state = SwapState {
+            amount_specified_remaining: amount_specified.0,
+            amount_calculated: 0,
+            sqrt_price_x96: self.slot_0.sqrt_price_x96.0,
+            tick: self.slot_0.tick,
+            fee_growth_global_x128: if zero_for_one {
+                self.fee_growth_global_0_x128
+            } else {
+                self.fee_growth_global_1_x128
+            },
+            liquidity: self.liquidity,
+        };
+
+        while state.amount_specified_remaining > 0
+            && state.sqrt_price_x96 != sqrt_price_limit_x96.as_u128()
+        {
+            let mut step = StepState::default();
+
+            (step.next_tick, _) = tick_bitmap::next_initialized_tick_within_one_word(
+                &self.tick_bitmap,
+                state.tick,
+                (self.tick_spacing as i32).as_i24(),
+                zero_for_one,
+            );
+
+            step.sqrt_price_start_x96 = state.sqrt_price_x96;
+            step.sqrt_price_next_x96 = tick_math::get_sqrt_ratio_at_tick(step.next_tick).as_u128();
+
+            let sqrt_target_price_x96 = if (zero_for_one
+                && step.sqrt_price_next_x96 < sqrt_price_limit_x96.as_u128())
+                || (!zero_for_one && step.sqrt_price_next_x96 > sqrt_price_limit_x96.as_u128())
+            {
+                sqrt_price_limit_x96
+            } else {
+                U256::from(step.sqrt_price_next_x96).as_u160()
+            };
+
+            let (sqrt_price_x96, amount_in, amount_out, fee_amount) = swap_math::compute_swap_step(
+                U256::from(state.sqrt_price_x96),
+                sqrt_target_price_x96,
+                state.liquidity,
+                I256::from(state.amount_specified_remaining),
+                self.fee,
+            );
+
+            (
+                state.sqrt_price_x96,
+                step.amount_in,
+                step.amount_out,
+                step.fee_amount,
+            ) = (
+                sqrt_price_x96.as_u128(),
+                amount_in.as_u128(),
+                amount_out.as_u128(),
+                fee_amount.as_u128(),
+            );
+
+            state.amount_specified_remaining -= step.amount_in + step.fee_amount;
+            state.amount_calculated += step.amount_out;
+
+            if state.liquidity > 0 {
+                state.fee_growth_global_x128 += FullMath::mul_div(
+                    U256::from(step.fee_amount),
+                    fixed_point_128::get_q128(),
+                    U256::from(state.liquidity),
+                )
+                .as_u128();
+            }
+
+            if state.sqrt_price_x96 == step.sqrt_price_next_x96 {
+                let mut tick = self.ticks.get(&step.next_tick).unwrap_or_default();
+
+                let fee_growth_global_0_x128 = if zero_for_one {
+                    state.fee_growth_global_x128
+                } else {
+                    self.fee_growth_global_0_x128
+                };
+
+                let fee_growth_global_1_x128 = if zero_for_one {
+                    self.fee_growth_global_1_x128
+                } else {
+                    state.fee_growth_global_x128
+                };
+
+                let mut liquidity_delta =
+                    tick.cross(fee_growth_global_0_x128, fee_growth_global_1_x128);
+                self.ticks.insert(&step.next_tick, &tick);
+
+                if zero_for_one {
+                    liquidity_delta = -liquidity_delta;
+                }
+
+                state.liquidity = liquidity_math::add_delta(state.liquidity, liquidity_delta);
+
+                if state.liquidity == 0 {
+                    env::panic_str(NOT_ENOUGH_LIQUIDITY)
+                }
+
+                state.tick = if zero_for_one {
+                    step.next_tick - 1
+                } else {
+                    step.next_tick
+                }
+            } else if state.sqrt_price_x96 != step.sqrt_price_next_x96 {
+                state.tick = tick_math::get_tick_at_sqrt_ratio(U256::from(state.sqrt_price_x96));
+            }
+        }
+
+        if state.tick != self.slot_0.tick {
+            self.slot_0.sqrt_price_x96 = U128::from(state.sqrt_price_x96);
+            self.slot_0.tick = state.tick;
+        } else {
+            self.slot_0.sqrt_price_x96 = U128::from(state.sqrt_price_x96);
+        }
+
+        if self.liquidity != state.liquidity {
+            self.liquidity = state.liquidity;
+        }
+
+        if zero_for_one {
+            self.fee_growth_global_0_x128 = state.fee_growth_global_x128;
+        } else {
+            self.fee_growth_global_1_x128 = state.fee_growth_global_x128;
+        }
+
+        let amount_in = amount_specified.0 - state.amount_specified_remaining;
+        let amount_out = state.amount_calculated;
+        let caller = env::predecessor_account_id();
+
+        if zero_for_one {
+            let deposited_token_0 = self.depositted_token_0.get(&caller).unwrap_or_default();
+            if deposited_token_0 < amount_in {
+                env::panic_str(INSUFFICIENT_INPUT_AMOUNT);
+            }
+            self.depositted_token_0
+                .insert(&caller, &(deposited_token_0 - amount_in));
+
+            ext_ft_core::ext(self.token_1.clone())
+                .with_attached_deposit(ONE_YOCTO)
+                .ft_transfer(recipient, U128::from(amount_out), None);
+        } else {
+            let deposited_token_1 = self.depositted_token_1.get(&caller).unwrap_or_default();
+            if deposited_token_1 < amount_in {
+                env::panic_str(INSUFFICIENT_INPUT_AMOUNT);
+            }
+            self.depositted_token_0
+                .insert(&caller, &(deposited_token_1 - amount_in));
+
+            ext_ft_core::ext(self.token_0.clone())
+                .with_attached_deposit(ONE_YOCTO)
+                .ft_transfer(recipient, U128::from(amount_out), None);
+        }
+
+        PromiseOrValue::Value(U128::from(amount_out))
     }
 
     fn get_slot_0(&self) -> Slot0 {

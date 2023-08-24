@@ -1,4 +1,4 @@
-use near_sdk::{ext_contract, json_types::U128, AccountId};
+use near_sdk::{ext_contract, json_types::U128, AccountId, PromiseOrValue};
 
 use crate::utils::Slot0;
 
@@ -18,9 +18,8 @@ pub trait CoreZswapPool {
         recipient: AccountId,
         zero_for_one: bool,
         amount_specified: U128,
-        sqrt_price_limit_x96: U128,
-        data: Vec<u8>,
-    );
+        sqrt_price_limit_x96: Option<U128>,
+    ) -> PromiseOrValue<U128>;
 
     // fn burn(&mut self, from: AccountId, amount: u128);
 

@@ -1,5 +1,5 @@
 use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
-use near_sdk::{env, json_types::U128, near_bindgen, AccountId, PromiseOrValue};
+use near_sdk::{env, json_types::U128, log, near_bindgen, AccountId, PromiseOrValue};
 
 use crate::{error::UNSUPPORTED_TOKEN, Contract, ContractExt};
 
@@ -24,6 +24,7 @@ impl FungibleTokenReceiver for Contract {
             PromiseOrValue::Value(unused_amount)
         } else {
             // TODO: handle swap
+            log!("handle deposit swap here");
             PromiseOrValue::Value(U128(0))
         }
     }

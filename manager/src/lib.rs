@@ -3,23 +3,22 @@ use near_contract_standards::non_fungible_token::metadata::{
 };
 use near_contract_standards::non_fungible_token::NonFungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::LazyOption;
+use near_sdk::collections::{LazyOption, LookupMap};
 use near_sdk::json_types::{I128, U128};
 use near_sdk::{
-    env, near_bindgen, serde_json, AccountId, BorshStorageKey, PanicOnDefault, Promise,
+    env, near_bindgen, serde_json, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault, Promise,
     PromiseError,
 };
 use pool::{ext_zswap_pool, Slot0};
-use utils::{SwapCallbackData, SwapSingleParams};
-use zswap_math_library::liquidity_math;
 use zswap_math_library::num160::AsU160;
 use zswap_math_library::num256::U256;
-use zswap_math_library::tick_math;
+use zswap_math_library::{liquidity_math, tick_math};
 
 use crate::utils::*;
 
 mod callback;
 mod error;
+pub mod ft_receiver;
 mod internal;
 mod nft;
 mod pool;
@@ -33,6 +32,7 @@ pub struct Contract {
     token_id: u128,
     nft: NonFungibleToken,
     metadata: LazyOption<NFTContractMetadata>,
+    account_tokens: LookupMap<CryptoHash, u128>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -42,6 +42,7 @@ pub(crate) enum StorageKey {
     TokenMetadata,
     Enumeration,
     Approval,
+    AccountTokens,
 }
 
 // Implement the contract structure
@@ -59,7 +60,7 @@ impl Contract {
         let metadata = NFTContractMetadata {
             spec: NFT_METADATA_SPEC.to_string(),
             name: "ZSwap Liquidity Management".to_string(),
-            symbol: "ZSP".to_string(),
+            symbol: "ZLM".to_string(),
             icon: None,
             base_uri: None,
             reference: None,
@@ -70,6 +71,7 @@ impl Contract {
             token_id: 0,
             nft,
             metadata: LazyOption::new(StorageKey::Metadata, Some(&metadata)),
+            account_tokens: LookupMap::new(StorageKey::AccountTokens),
         }
     }
 
@@ -97,34 +99,55 @@ impl Contract {
         )
     }
 
-    #[payable]
-    pub fn swap_single(&mut self, params: SwapSingleParams) -> Promise {
-        let data = SwapCallbackData {
-            token_0: params.token_in,
-            token_1: params.token_out,
-            fee: params.fee,
-            payer: env::predecessor_account_id(),
-        };
+    // #[payable]
+    // pub fn swap_single(&mut self, params: SwapSingleParams) -> Promise {
+    //     let receipient = env::predecessor_account_id();
+    //     let token_in_key = get_token_key(&receipient, &params.token_in);
+    //     let depositted_token_in = self
+    //         .depositted_tokens
+    //         .get(&token_in_key)
+    //         .unwrap_or_default();
+    //     if depositted_token_in < params.amount_in.0 {
+    //         env::panic_str(INSUFFICIENT_FUND);
+    //     }
 
-        self.internal_swap(
-            params.amount_in,
-            env::predecessor_account_id(),
-            params.sqrt_price_limit_x96,
-            data,
-        )
-    }
+    //     let zero_for_one = params.token_in < params.token_out;
+    //     let pool_id = pool_account::compute_account(
+    //         self.factory.clone(),
+    //         params.token_in.clone(),
+    //         params.token_out.clone(),
+    //         params.fee,
+    //     );
+    //     ext_ft_core::ext(params.token_in.clone())
+    //         .with_attached_deposit(ONE_YOCTO)
+    //         .ft_transfer_call(pool_id.clone(), params.amount_in, None, String::from(""))
+    //         .then(ext_zswap_pool::ext(pool_id).swap(
+    //             receipient,
+    //             zero_for_one,
+    //             params.amount_in,
+    //             params.sqrt_price_limit_x96,
+    //         ))
+    //     // .then(Self::ext(env::current_account_id()).handle_multi_swap_calback())
+    // }
 
-    #[allow(unused)]
-    #[payable]
-    pub fn swap(
-        &mut self,
-        tokens: Vec<AccountId>,
-        fees: Vec<u32>,
-        recipient: AccountId,
-        amount_in: u128,
-        amount_out_min: u128,
-    ) {
-    }
+    // #[payable]
+    // pub fn handle_multi_swap_calback(&mut self) {
+    //     log!("promise count: {}", env::promise_results_count());
+    //     log!("promise result: {:?}", env::promise_result(0));
+    //     log!("calling handle_multi_swap_calback")
+    // }
+
+    // #[allow(unused)]
+    // #[payable]
+    // pub fn swap(
+    //     &mut self,
+    //     tokens: Vec<AccountId>,
+    //     fees: Vec<u32>,
+    //     recipient: AccountId,
+    //     amount_in: u128,
+    //     amount_out_min: u128,
+    // ) {
+    // }
 
     #[payable]
     #[private]
