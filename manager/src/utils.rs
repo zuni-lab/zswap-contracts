@@ -1,6 +1,6 @@
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::AccountId;
+use near_sdk::{env, AccountId, CryptoHash};
 
 pub struct GetPositionParams {
     pub token_0: AccountId,
@@ -31,8 +31,8 @@ pub struct SwapSingleParams {
     pub token_in: AccountId,
     pub token_out: AccountId,
     pub fee: u32,
-    pub amount_in: u128,
-    pub sqrt_price_limit_x96: u128,
+    pub amount_in: U128,
+    pub sqrt_price_limit_x96: Option<U128>,
 }
 
 #[allow(unused)]
@@ -72,6 +72,6 @@ pub struct NftLiquidityInfo {
 //     pub payer: AccountId,
 // }
 
-// pub fn get_approved_token_key(spender_id: &AccountId, token_id: &AccountId) -> CryptoHash {
-//     env::keccak256_array(&[spender_id.as_bytes(), token_id.as_bytes()].concat())
-// }
+pub fn get_token_key(owner: &AccountId, token_id: &AccountId) -> CryptoHash {
+    env::keccak256_array(&[owner.as_bytes(), token_id.as_bytes()].concat())
+}

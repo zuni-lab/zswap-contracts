@@ -1,13 +1,9 @@
 use std::cmp::Ordering;
 
-use near_sdk::{env, AccountId, Promise};
+use near_sdk::{env, AccountId};
 use zswap_math_library::pool_account;
-// use zswap_pool::core_trait::ext_zswap_pool_core;
 
 use crate::error::TOKENS_MUST_BE_DIFFERENT;
-// use crate::ft_account::Account;
-use crate::pool::ext_zswap_pool;
-use crate::utils::SwapCallbackData;
 use crate::Contract;
 
 impl Contract {
@@ -30,27 +26,27 @@ impl Contract {
     //     self.accounts.insert(sender_id, &account);
     // }
 
-    pub fn internal_swap(
-        &mut self,
-        amount_in: u128,
-        recipient: AccountId,
-        sqrt_price_limit_x96: u128,
-        data: SwapCallbackData,
-    ) -> Promise {
-        let zero_for_one = data.token_0 < data.token_1;
-        let pool = self.get_pool(&data.token_0, &data.token_1, data.fee);
-        let encoded_data = near_sdk::serde_json::to_vec(&data).unwrap();
+    // pub fn internal_swap(
+    //     &mut self,
+    //     amount_in: u128,
+    //     recipient: AccountId,
+    //     sqrt_price_limit_x96: u128,
+    //     data: SwapCallbackData,
+    // ) -> Promise {
+    //     let zero_for_one = data.token_0 < data.token_1;
+    //     let pool = self.get_pool(&data.token_0, &data.token_1, data.fee);
+    //     let encoded_data = near_sdk::serde_json::to_vec(&data).unwrap();
 
-        ext_zswap_pool::ext(pool)
-            .swap(
-                recipient,
-                zero_for_one,
-                amount_in.into(),
-                sqrt_price_limit_x96.into(),
-                encoded_data,
-            )
-            .then(Self::ext(env::current_account_id()).calculate_amount_out(zero_for_one))
-    }
+    //     ext_zswap_pool::ext(pool)
+    //         .swap(
+    //             recipient,
+    //             zero_for_one,
+    //             amount_in.into(),
+    //             sqrt_price_limit_x96.into(),
+    //             encoded_data,
+    //         )
+    //         .then(Self::ext(env::current_account_id()).calculate_amount_out(zero_for_one))
+    // }
 
     // ========= VIEW METHODS =========
 

@@ -31,9 +31,9 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
         .transfer_near(&deployer.id(), parse_near!("95 N"))
         .await?
         .into_result()?;
-    println!("\tDeployer account {}", deployer.id());
+    println!("\tDeployer account: {}", deployer.id());
 
-    let initial_balance = U128::from(parse_near!("100 N"));
+    let initial_balance = U128::from(1_000_000_000_000);
     token_0_contract
         .call("new_default_meta")
         .args_json((deployer.id(), initial_balance))
@@ -48,11 +48,8 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
         .transact()
         .await?
         .into_result()?;
-    println!(
-        "\tCreated token 0 {} & 1 {}",
-        token_0_contract.id(),
-        token_1_contract.id()
-    );
+    println!("\tToken 0 contract: {}", token_0_contract.id(),);
+    println!("\tToken 1 contract: {}", token_1_contract.id(),);
 
     factory_contract
         .call("new")
@@ -60,7 +57,7 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
         .transact()
         .await?
         .into_result()?;
-    println!("\tCreated factory {}", factory_contract.id());
+    println!("\tFactory contract: {}", factory_contract.id());
 
     let pool_id = deployer
         .call(factory_contract.id(), "create_pool")
@@ -70,7 +67,7 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
         .transact()
         .await?
         .json::<AccountId>()?;
-    println!("\tCreated pool {}", pool_id);
+    println!("\tPool contract: {}", pool_id);
 
     let initial_sqrt_price_x96 = U128::from(10 * (2_u128).pow(96));
     deployer
@@ -89,7 +86,7 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
         .transact()
         .await?
         .into_result()?;
-    println!("\tCreated manager {}", manager_contract.id());
+    println!("\tManager contract: {}", manager_contract.id());
 
     // add storage deposit for manager & pool contract
     deployer

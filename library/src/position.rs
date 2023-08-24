@@ -12,8 +12,8 @@ pub struct PositionInfo {
     // the amount of liquidity owned by this position
     pub liquidity: u128,
     // fee growth per unit of liquidity as of the last update to liquidity or fees owed
-    pub fee_growth_inside_0_last_x128: U256,
-    pub fee_growth_inside_1_last_x128: U256,
+    pub fee_growth_inside_0_last_x128: u128,
+    pub fee_growth_inside_1_last_x128: u128,
     // the fees owed to the position owner in token0/token1
     pub tokens_owed_0: u128,
     pub tokens_owed_1: u128,
@@ -24,8 +24,8 @@ impl PositionInfo {
     pub fn update(
         &mut self,
         liquidity_delta: i128,
-        fee_growth_inside_0_x128: U256,
-        fee_growth_inside_1_x128: U256,
+        fee_growth_inside_0_x128: u128,
+        fee_growth_inside_1_x128: u128,
     ) {
         let liquidity_next: u128 = if liquidity_delta == 0 && self.liquidity > 0 {
             self.liquidity
@@ -35,14 +35,14 @@ impl PositionInfo {
 
         // calculate accumulated fees
         let tokens_owed_0 = FullMath::mul_div(
-            fee_growth_inside_0_x128 - self.fee_growth_inside_0_last_x128,
+            U256::from(fee_growth_inside_0_x128 - self.fee_growth_inside_0_last_x128),
             U256::from(self.liquidity),
             fixed_point_128::get_q128(),
         )
         .as_u128();
 
         let tokens_owed_1 = FullMath::mul_div(
-            fee_growth_inside_1_x128 - self.fee_growth_inside_1_last_x128,
+            U256::from(fee_growth_inside_1_x128 - self.fee_growth_inside_1_last_x128),
             U256::from(self.liquidity),
             fixed_point_128::get_q128(),
         )

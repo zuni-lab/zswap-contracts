@@ -1,4 +1,5 @@
 use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::PromiseOrValue;
 use near_sdk::{ext_contract, json_types::U128, AccountId};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -23,9 +24,8 @@ pub trait ZswapPool {
         recipient: AccountId,
         zero_for_one: bool,
         amount_specified: U128,
-        sqrt_price_limit_x96: U128,
-        data: Vec<u8>,
-    );
+        sqrt_price_limit_x96: Option<U128>,
+    ) -> PromiseOrValue<U128>;
 
     fn get_slot_0(&self) -> Slot0;
 }

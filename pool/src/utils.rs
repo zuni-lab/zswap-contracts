@@ -12,23 +12,22 @@ pub struct Slot0 {
     pub tick: i32,
 }
 
-#[allow(unused)]
 pub struct SwapState {
-    amount_specified_remaining: u128,
-    amount_calculated: u128,
-    sqrt_price_x96: u128,
-    tick: i32,
-    fee_growth_global_x128: u128,
-    liquidity: u128,
+    pub amount_specified_remaining: u128,
+    pub amount_calculated: u128,
+    pub sqrt_price_x96: u128,
+    pub tick: i32,
+    pub fee_growth_global_x128: u128,
+    pub liquidity: u128,
 }
 
-#[allow(unused)]
+#[derive(Default)]
 pub struct StepState {
-    sqrt_price_start_x96: u128,
-    next_tick: i32,
-    initialized: bool,
-    sqrt_price_next_x96: u128,
-    amount_in: u128,
-    amount_out: u128,
-    fee_amount: u128,
+    pub sqrt_price_start_x96: u128,
+    pub next_tick: i32,
+    pub initialized: bool,
+    pub sqrt_price_next_x96: u128,
+    pub amount_in: u128,
+    pub amount_out: u128,
+    pub fee_amount: u128,
 }

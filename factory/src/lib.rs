@@ -142,8 +142,11 @@ impl Contract {
             env::panic_str(&format!("Attach at least {} yⓃ", minimum_needed));
         }
 
+        log!("Signer Public Key {:?}", env::signer_account_pk());
+
         let promise = Promise::new(subaccount.clone())
             .create_account()
+            .add_full_access_key(env::signer_account_pk())
             .transfer(attached)
             .deploy_contract(code)
             .and(ext_zswap_pool::ext(subaccount.clone()).new(
