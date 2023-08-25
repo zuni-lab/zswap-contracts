@@ -1,7 +1,9 @@
 use ethnum::I256;
 use near_contract_standards::fungible_token::core::ext_ft_core;
 use near_sdk::{env, AccountId, CryptoHash, Promise};
-use zswap_math_library::{liquidity_math, num256::U256, sqrt_price_math, tick, tick_math};
+use zswap_math_library::{
+    liquidity_math, num256::U256, sqrt_price_math, tick, tick_bitmap::flip_tick, tick_math,
+};
 
 use crate::{error::INSUFFICIENT_INPUT_AMOUNT, Contract};
 
@@ -67,9 +69,13 @@ impl Contract {
         );
         self.ticks.insert(&upper_tick, &upper_tick_info);
 
-        if flipped_lower {}
+        if flipped_lower {
+            flip_tick(&mut self.tick_bitmap, lower_tick, self.tick_spacing as i32);
+        }
 
-        if flipped_upper {}
+        if flipped_upper {
+            flip_tick(&mut self.tick_bitmap, upper_tick, self.tick_spacing as i32);
+        }
 
         let fees_growth_inside_x128 = tick::get_fee_growth_inside(
             lower_tick,
@@ -99,8 +105,8 @@ impl Contract {
             );
         } else if current_tick < upper_tick {
             amount_0 = sqrt_price_math::get_amount_0_delta_signed(
-                tick_math::get_sqrt_ratio_at_tick(lower_tick),
                 U256::from(sqrt_current_price),
+                tick_math::get_sqrt_ratio_at_tick(upper_tick),
                 liquidity_delta,
             );
             amount_1 = sqrt_price_math::get_amount_1_delta_signed(
@@ -121,15 +127,15 @@ impl Contract {
     }
 
     pub fn internal_collect_token_0_to_mint(&mut self, account: &AccountId, amount: u128) {
-        let depositted_token_opt = self.depositted_token_0.get(account);
-        match depositted_token_opt {
-            Some(deposistted) => {
-                if deposistted < amount {
+        let deposited_token_opt = self.deposited_token_0.get(account);
+        match deposited_token_opt {
+            Some(deposited) => {
+                if deposited < amount {
                     env::panic_str(INSUFFICIENT_INPUT_AMOUNT);
                 }
 
-                self.depositted_token_0
-                    .insert(account, &(deposistted - amount));
+                self.deposited_token_0
+                    .insert(account, &(deposited - amount));
             }
             None => {
                 env::panic_str(INSUFFICIENT_INPUT_AMOUNT);
@@ -138,15 +144,15 @@ impl Contract {
     }
 
     pub fn internal_collect_token_1_to_mint(&mut self, account: &AccountId, amount: u128) {
-        let depositted_token_opt = self.depositted_token_1.get(account);
-        match depositted_token_opt {
-            Some(deposistted) => {
-                if deposistted < amount {
+        let deposited_token_opt = self.deposited_token_1.get(account);
+        match deposited_token_opt {
+            Some(deposited) => {
+                if deposited < amount {
                     env::panic_str(INSUFFICIENT_INPUT_AMOUNT);
                 }
 
-                self.depositted_token_1
-                    .insert(account, &(deposistted - amount));
+                self.deposited_token_1
+                    .insert(account, &(deposited - amount));
             }
             None => {
                 env::panic_str(INSUFFICIENT_INPUT_AMOUNT);
