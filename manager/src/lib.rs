@@ -10,8 +10,6 @@ use near_sdk::{
     Promise, PromiseError,
 };
 use pool::{ext_zswap_pool, Slot0};
-use zswap_math_library::num256::U256;
-use zswap_math_library::{liquidity_math, tick_math};
 
 use crate::utils::*;
 
@@ -88,69 +86,19 @@ impl Contract {
 
     #[payable]
     pub fn mint(&mut self, params: MintParams) -> Promise {
-        let pool = self.get_pool(&params.token_0, &params.token_1, params.fee);
-        let receipient = env::predecessor_account_id();
+        let pool = self.internal_get_pool(&params.token_0, &params.token_1, params.fee);
+        let recipient = env::predecessor_account_id();
 
         ext_zswap_pool::ext(pool.clone()).get_slot_0().then(
             Self::ext(env::current_account_id())
                 .with_attached_deposit(env::attached_deposit())
-                .calculate_liquidity(pool, receipient, params),
+                .mint_calculate_liquidity(pool, recipient, params),
         )
     }
 
-    // #[payable]
-    // pub fn swap_single(&mut self, params: SwapSingleParams) -> Promise {
-    //     let receipient = env::predecessor_account_id();
-    //     let token_in_key = get_token_key(&receipient, &params.token_in);
-    //     let depositted_token_in = self
-    //         .depositted_tokens
-    //         .get(&token_in_key)
-    //         .unwrap_or_default();
-    //     if depositted_token_in < params.amount_in.0 {
-    //         env::panic_str(INSUFFICIENT_FUND);
-    //     }
-
-    //     let zero_for_one = params.token_in < params.token_out;
-    //     let pool_id = pool_account::compute_account(
-    //         self.factory.clone(),
-    //         params.token_in.clone(),
-    //         params.token_out.clone(),
-    //         params.fee,
-    //     );
-    //     ext_ft_core::ext(params.token_in.clone())
-    //         .with_attached_deposit(ONE_YOCTO)
-    //         .ft_transfer_call(pool_id.clone(), params.amount_in, None, String::from(""))
-    //         .then(ext_zswap_pool::ext(pool_id).swap(
-    //             receipient,
-    //             zero_for_one,
-    //             params.amount_in,
-    //             params.sqrt_price_limit_x96,
-    //         ))
-    //     // .then(Self::ext(env::current_account_id()).handle_multi_swap_calback())
-    // }
-
-    // #[payable]
-    // pub fn handle_multi_swap_calback(&mut self) {
-    //     log!("promise count: {}", env::promise_results_count());
-    //     log!("promise result: {:?}", env::promise_result(0));
-    //     log!("calling handle_multi_swap_calback")
-    // }
-
-    // #[allow(unused)]
-    // #[payable]
-    // pub fn swap(
-    //     &mut self,
-    //     tokens: Vec<AccountId>,
-    //     fees: Vec<u32>,
-    //     recipient: AccountId,
-    //     amount_in: u128,
-    //     amount_out_min: u128,
-    // ) {
-    // }
-
     #[payable]
     #[private]
-    pub fn calculate_liquidity(
+    pub fn mint_calculate_liquidity(
         &mut self,
         #[callback_result] slot_0_res: Result<Slot0, PromiseError>,
         pool: AccountId,
@@ -159,13 +107,10 @@ impl Contract {
     ) -> Promise {
         let slot_0 = slot_0_res.unwrap();
 
-        let sqrt_price_x96 = slot_0.sqrt_price_x96;
-        let sqrt_price_lower_x96 = tick_math::get_sqrt_ratio_at_tick(params.lower_tick);
-        let sqrt_price_upper_x96 = tick_math::get_sqrt_ratio_at_tick(params.upper_tick);
-        let liquidity = liquidity_math::get_liquidity_for_amounts(
-            U256::from(sqrt_price_x96.0),
-            sqrt_price_lower_x96,
-            sqrt_price_upper_x96,
+        let liquidity = self.internal_calculate_liquidity(
+            slot_0,
+            params.lower_tick,
+            params.upper_tick,
             params.amount_0_desired.0,
             params.amount_1_desired.0,
         );
@@ -231,6 +176,24 @@ impl Contract {
             let amount_0 = -amounts[0].0 as u128;
             U128::from(amount_0)
         }
+    }
+
+    pub fn get_liquidity_for_amounts(
+        &self,
+        slot_0: Slot0,
+        lower_tick: i32,
+        upper_tick: i32,
+        amount_0_desired: U128,
+        amount_1_desired: U128,
+    ) -> U128 {
+        self.internal_calculate_liquidity(
+            slot_0,
+            lower_tick,
+            upper_tick,
+            amount_0_desired.0,
+            amount_1_desired.0,
+        )
+        .into()
     }
 }
 

@@ -1,56 +1,20 @@
 use std::cmp::Ordering;
 
 use near_sdk::{env, AccountId};
-use zswap_math_library::pool_account;
+use zswap_math_library::num256::U256;
+use zswap_math_library::{liquidity_math, pool_account, tick_math};
 
 use crate::error::TOKENS_MUST_BE_DIFFERENT;
+use crate::pool::Slot0;
 use crate::Contract;
 
 impl Contract {
-    // pub fn internal_deposit(
-    //     &mut self,
-    //     sender_id: &AccountId,
-    //     token_id: &AccountId,
-    //     amount: Balance,
-    // ) {
-    //     let mut account = self.get_account(sender_id);
-
-    //     if amount > 0 {
-    //         let current_amount = account.deposited_tokens.get(token_id).unwrap_or(0);
-    //         account
-    //             .deposited_tokens
-    //             .insert(token_id, &(current_amount + amount));
-    //     }
-
-    //     // save account
-    //     self.accounts.insert(sender_id, &account);
-    // }
-
-    // pub fn internal_swap(
-    //     &mut self,
-    //     amount_in: u128,
-    //     recipient: AccountId,
-    //     sqrt_price_limit_x96: u128,
-    //     data: SwapCallbackData,
-    // ) -> Promise {
-    //     let zero_for_one = data.token_0 < data.token_1;
-    //     let pool = self.get_pool(&data.token_0, &data.token_1, data.fee);
-    //     let encoded_data = near_sdk::serde_json::to_vec(&data).unwrap();
-
-    //     ext_zswap_pool::ext(pool)
-    //         .swap(
-    //             recipient,
-    //             zero_for_one,
-    //             amount_in.into(),
-    //             sqrt_price_limit_x96.into(),
-    //             encoded_data,
-    //         )
-    //         .then(Self::ext(env::current_account_id()).calculate_amount_out(zero_for_one))
-    // }
-
-    // ========= VIEW METHODS =========
-
-    pub fn get_pool(&self, token_0: &AccountId, token_1: &AccountId, fee: u32) -> AccountId {
+    pub fn internal_get_pool(
+        &self,
+        token_0: &AccountId,
+        token_1: &AccountId,
+        fee: u32,
+    ) -> AccountId {
         let ordered_token_0;
         let ordered_token_1;
         match token_0.cmp(token_1) {
@@ -70,6 +34,26 @@ impl Contract {
             ordered_token_0.clone(),
             ordered_token_1.clone(),
             fee,
+        )
+    }
+
+    pub fn internal_calculate_liquidity(
+        &self,
+        slot_0: Slot0,
+        lower_tick: i32,
+        upper_tick: i32,
+        amount_0: u128,
+        amount_1: u128,
+    ) -> u128 {
+        let sqrt_price_x96 = slot_0.sqrt_price_x96;
+        let sqrt_price_lower_x96 = tick_math::get_sqrt_ratio_at_tick(lower_tick);
+        let sqrt_price_upper_x96 = tick_math::get_sqrt_ratio_at_tick(upper_tick);
+        liquidity_math::get_liquidity_for_amounts(
+            U256::from(sqrt_price_x96.0),
+            sqrt_price_lower_x96,
+            sqrt_price_upper_x96,
+            amount_0,
+            amount_1,
         )
     }
 }
