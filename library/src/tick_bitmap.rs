@@ -29,15 +29,17 @@ pub fn position(tick: i32) -> (i16, u8) {
 /// @param tick The tick to flip
 /// @param
 /// @param tickSpacing The spacing between usable ticks
-pub fn flip_tick(tick: i32, tick_spacing: i32, old_word: U256) -> U256 {
+pub fn flip_tick(tick_bitmap: &mut LookupMap<i16, U256>, tick: i32, tick_spacing: i32) {
     assert!(
         (TickConstants::MIN_TICK..=TickConstants::MAX_TICK).contains(&tick),
         "INVALID TICK RANGE",
     );
     assert_eq!(tick % tick_spacing, 0); // ensure that the tick is spaced
-    let (_word_pos, bit_pos) = position(tick / tick_spacing);
+    let (word_pos, bit_pos) = position(tick / tick_spacing);
     let mask = U256::one() << bit_pos;
-    old_word ^ mask
+    let mut current = tick_bitmap.get(&word_pos).unwrap_or_default();
+    current ^= mask;
+    tick_bitmap.insert(&word_pos, &current);
 }
 
 /// !MODIFIED

@@ -205,7 +205,7 @@ pub fn get_amount_0_delta_signed(
         -get_amount_0_delta(
             sqrt_ratio_a_x96,
             sqrt_ratio_b_x96,
-            -liquidity as u128,
+            liquidity.unsigned_abs(),
             false,
         )
         .as_i256()
@@ -242,6 +242,26 @@ mod tests {
     use crate::utils;
     use std::ops::Shl;
     use std::panic;
+
+    #[test]
+    fn test_get_signed_amount_0() {
+        let amount_0 = get_amount_0_delta_signed(
+            U256::from(792281450588003167884250659085_u128),
+            U256::from(794105703800257843709031641053_u128),
+            3708891,
+        );
+        assert_eq!(amount_0, 853);
+    }
+
+    #[test]
+    fn test_get_signed_amount_1() {
+        let amount_1 = get_amount_1_delta_signed(
+            U256::from(790145282602472263393995913049_u128),
+            U256::from(792281450588003167884250659085_u128),
+            3708891,
+        );
+        assert_eq!(amount_1, 100000);
+    }
 
     #[test]
     fn test_get_next_sqrt_price_from_input() {
