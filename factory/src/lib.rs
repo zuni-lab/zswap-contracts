@@ -13,6 +13,8 @@ use pool::*;
 mod error;
 pub mod pool;
 
+mod dev; // Disable this line on production
+
 const NEAR_PER_STORAGE: Balance = 10_000_000_000_000_000_000; // 10e18yⓃ
 const ZSWAP_POOL_CONTRACT: &[u8] = include_bytes!("../../res/zswap_pool.wasm");
 

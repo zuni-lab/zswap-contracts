@@ -6,11 +6,10 @@ use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, LookupMap};
 use near_sdk::json_types::{I128, U128};
 use near_sdk::{
-    env, near_bindgen, serde_json, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault, Promise,
-    PromiseError,
+    env, log, near_bindgen, serde_json, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault,
+    Promise, PromiseError,
 };
 use pool::{ext_zswap_pool, Slot0};
-use zswap_math_library::num160::AsU160;
 use zswap_math_library::num256::U256;
 use zswap_math_library::{liquidity_math, tick_math};
 
@@ -165,11 +164,12 @@ impl Contract {
         let sqrt_price_upper_x96 = tick_math::get_sqrt_ratio_at_tick(params.upper_tick);
         let liquidity = liquidity_math::get_liquidity_for_amounts(
             U256::from(sqrt_price_x96.0),
-            sqrt_price_lower_x96.as_u160(),
-            sqrt_price_upper_x96.as_u160(),
-            U256::from(params.amount_0_desired.0),
-            U256::from(params.amount_1_desired.0),
+            sqrt_price_lower_x96,
+            sqrt_price_upper_x96,
+            params.amount_0_desired.0,
+            params.amount_1_desired.0,
         );
+        log!("Liquidity: {}", liquidity);
 
         // mint nft
         let liquidity_info = NftLiquidityInfo {
@@ -182,7 +182,7 @@ impl Contract {
         };
         let nft_description = format!("ZSwap Liquidity NFT for {}", &pool);
 
-        let liqudity_nft_metadata = TokenMetadata {
+        let liquidity_nft_metadata = TokenMetadata {
             title: Some("ZSwap Liquidity NFT".to_string()),
             description: Some(nft_description),
             media: None,
@@ -200,7 +200,7 @@ impl Contract {
         self.nft.internal_mint(
             self.token_id.to_string(),
             recipient.clone(),
-            Some(liqudity_nft_metadata),
+            Some(liquidity_nft_metadata),
         );
         self.token_id += 1;
 
