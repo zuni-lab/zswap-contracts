@@ -101,7 +101,7 @@ $ near call $ZUSD storage_deposit '{"account_id":"'$ZSWAP_POOL'"}' --deposit 1 -
 1. Deposit ZNEAR into `ZswapPool`
 
 ```sh
-$ ZNEAR_AMOUNT=1000
+$ ZNEAR_AMOUNT=10000000
 
 $ near call $ZNEAR ft_transfer_call '{"receiver_id":"'$ZSWAP_POOL'", "amount":"'$ZNEAR_AMOUNT'", "msg":""}' --depositYocto 1 --gas 300000000000000 --accountId zswap.testnet
 ```
@@ -109,7 +109,7 @@ $ near call $ZNEAR ft_transfer_call '{"receiver_id":"'$ZSWAP_POOL'", "amount":"'
 2. Deposit ZUSD into `ZswapPool`
 
 ```sh
-$ ZUSD_AMOUNT=100000
+$ ZUSD_AMOUNT=100000000
 
 $ near call $ZUSD ft_transfer_call '{"receiver_id":"'$ZSWAP_POOL'", "amount":"'$ZUSD_AMOUNT'", "msg":""}' --depositYocto 1 --gas 300000000000000 --accountId zswap.testnet
 ```
@@ -126,21 +126,35 @@ $ near call $ZUSD ft_transfer_call '{"receiver_id":"'$ZSWAP_POOL'", "amount":"'$
     "fee": 3000,
     "lower_tick": 42000,
     "upper_tick": 48000,
-    "amount_0_desired": "10",
-    "amount_1_desired": "500",
+    "amount_0_desired": "10000000",
+    "amount_1_desired": "100000000",
     "amount_0_min": "1",
     "amount_1_min": "100"
   }
 }
 ```
 
+- View the corresponding amount with the other.
+
 ```sh
 $ ZSWAP_MANAGER=manager.zswap.testnet
 
+$ SQRT_PRICE=792281625142643375935439503360
+
+$ near view $ZSWAP_MANAGER calculate_amount_1_with_amount_0 '{"amount_0":"'$ZNEAR_AMOUNT'","sqrt_price_x96":"'$SQRT_PRICE'","lower_tick":42000,"upper_tick":48000}'
+
+'1978918829' # returns amount_1
+
+$ near view  $ZSWAP_MANAGER calculate_amount_0_with_amount_1 '{"amount_1":"'$ZUSD_AMOUNT'","sqrt_price_x96":"'$SQRT_PRICE'","lower_tick":42000,"upper_tick":48000}'
+
+'505327' # returns amount_0
+```
+
+```sh
 $ near call $ZSWAP_MANAGER mint '{"params":{"token_0":"'$ZNEAR'","token_1":"'$ZUSD'","fee":3000,"lower_tick":46000,"upper_tick":46100, "amount_0_desired":"'$ZNEAR_AMOUNT'","amount_1_desired":"'$ZUSD_AMOUNT'","amount_0_min":"100","amount_1_min":"100"}}' --gas 300000000000000 --accountId zswap.testnet --deposit 0.1
 
 # Return amount_0 & amount_1
-[ '506', '100000' ]
+[ '505327', '100000000' ]
 ```
 
 - After minting liquidity, you will get an NFT

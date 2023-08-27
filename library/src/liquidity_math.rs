@@ -52,7 +52,7 @@ pub fn get_liquidity_for_amount_0(
 }
 
 /// $L = \frac{\Delta y}{\Delta \sqrt{P}}$
-fn get_liquidity_for_amount_1(
+pub fn get_liquidity_for_amount_1(
     _sqrt_price_a_x96: U256,
     _sqrt_price_b_x96: U256,
     amount_1: u128,

@@ -1,17 +1,18 @@
+use near_contract_standards::fungible_token::metadata::{ext_ft_metadata, FungibleTokenMetadata};
 use near_contract_standards::non_fungible_token::metadata::{
     NFTContractMetadata, TokenMetadata, NFT_METADATA_SPEC,
 };
 use near_contract_standards::non_fungible_token::NonFungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, LookupMap};
-use near_sdk::json_types::{I128, U128};
+use near_sdk::json_types::{Base64VecU8, I128, U128};
 use near_sdk::{
     env, log, near_bindgen, serde_json, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault,
     Promise, PromiseError,
 };
 use pool::{ext_zswap_pool, Slot0};
 use zswap_math_library::num256::U256;
-use zswap_math_library::{liquidity_math, tick_math};
+use zswap_math_library::{liquidity_math, sqrt_price_math, tick_math};
 
 use crate::utils::*;
 
@@ -88,90 +89,63 @@ impl Contract {
 
     #[payable]
     pub fn mint(&mut self, params: MintParams) -> Promise {
-        let pool = self.get_pool(&params.token_0, &params.token_1, params.fee);
-        let receipient = env::predecessor_account_id();
+        let pool = self.internal_get_pool(&params.token_0, &params.token_1, params.fee);
+        let slot_0_promise = ext_zswap_pool::ext(pool.clone()).get_slot_0();
 
-        ext_zswap_pool::ext(pool.clone()).get_slot_0().then(
-            Self::ext(env::current_account_id())
-                .with_attached_deposit(env::attached_deposit())
-                .calculate_liquidity(pool, receipient, params),
-        )
+        let token_0_meta_promise = ext_ft_metadata::ext(params.token_0.clone()).ft_metadata();
+        let token_1_meta_promise = ext_ft_metadata::ext(params.token_1.clone()).ft_metadata();
+
+        let recipient = env::predecessor_account_id();
+
+        slot_0_promise
+            .and(token_0_meta_promise)
+            .and(token_1_meta_promise)
+            .then(
+                Self::ext(env::current_account_id())
+                    .with_attached_deposit(env::attached_deposit())
+                    .mint_calculate_liquidity(pool, recipient, params),
+            )
     }
-
-    // #[payable]
-    // pub fn swap_single(&mut self, params: SwapSingleParams) -> Promise {
-    //     let receipient = env::predecessor_account_id();
-    //     let token_in_key = get_token_key(&receipient, &params.token_in);
-    //     let depositted_token_in = self
-    //         .depositted_tokens
-    //         .get(&token_in_key)
-    //         .unwrap_or_default();
-    //     if depositted_token_in < params.amount_in.0 {
-    //         env::panic_str(INSUFFICIENT_FUND);
-    //     }
-
-    //     let zero_for_one = params.token_in < params.token_out;
-    //     let pool_id = pool_account::compute_account(
-    //         self.factory.clone(),
-    //         params.token_in.clone(),
-    //         params.token_out.clone(),
-    //         params.fee,
-    //     );
-    //     ext_ft_core::ext(params.token_in.clone())
-    //         .with_attached_deposit(ONE_YOCTO)
-    //         .ft_transfer_call(pool_id.clone(), params.amount_in, None, String::from(""))
-    //         .then(ext_zswap_pool::ext(pool_id).swap(
-    //             receipient,
-    //             zero_for_one,
-    //             params.amount_in,
-    //             params.sqrt_price_limit_x96,
-    //         ))
-    //     // .then(Self::ext(env::current_account_id()).handle_multi_swap_calback())
-    // }
-
-    // #[payable]
-    // pub fn handle_multi_swap_calback(&mut self) {
-    //     log!("promise count: {}", env::promise_results_count());
-    //     log!("promise result: {:?}", env::promise_result(0));
-    //     log!("calling handle_multi_swap_calback")
-    // }
-
-    // #[allow(unused)]
-    // #[payable]
-    // pub fn swap(
-    //     &mut self,
-    //     tokens: Vec<AccountId>,
-    //     fees: Vec<u32>,
-    //     recipient: AccountId,
-    //     amount_in: u128,
-    //     amount_out_min: u128,
-    // ) {
-    // }
 
     #[payable]
     #[private]
-    pub fn calculate_liquidity(
+    pub fn mint_calculate_liquidity(
         &mut self,
         #[callback_result] slot_0_res: Result<Slot0, PromiseError>,
+        #[callback_result] token_0_meta_res: Result<FungibleTokenMetadata, PromiseError>,
+        #[callback_result] token_1_meta_res: Result<FungibleTokenMetadata, PromiseError>,
         pool: AccountId,
         recipient: AccountId,
         params: MintParams,
     ) -> Promise {
         let slot_0 = slot_0_res.unwrap();
-
-        let sqrt_price_x96 = slot_0.sqrt_price_x96;
-        let sqrt_price_lower_x96 = tick_math::get_sqrt_ratio_at_tick(params.lower_tick);
-        let sqrt_price_upper_x96 = tick_math::get_sqrt_ratio_at_tick(params.upper_tick);
-        let liquidity = liquidity_math::get_liquidity_for_amounts(
-            U256::from(sqrt_price_x96.0),
-            sqrt_price_lower_x96,
-            sqrt_price_upper_x96,
+        let liquidity = self.internal_calculate_liquidity(
+            slot_0,
+            params.lower_tick,
+            params.upper_tick,
             params.amount_0_desired.0,
             params.amount_1_desired.0,
         );
         log!("Liquidity: {}", liquidity);
 
         // mint nft
+        let token_0_meta = token_0_meta_res.unwrap();
+        let token_1_meta = token_1_meta_res.unwrap();
+
+        let symbol_0 = &token_0_meta.symbol;
+        let symbol_1 = &token_1_meta.symbol;
+
+        let nft_title = format!("{}/{}", symbol_0, symbol_1);
+        let nft_description = format!("ZSwap Liquidity NFT for {}", &pool);
+        let nft_media = generate_nft_media(
+            symbol_0,
+            symbol_1,
+            &recipient,
+            params.lower_tick,
+            params.upper_tick,
+            params.fee,
+        );
+        let nft_media_hash = env::sha256(nft_media.as_bytes());
         let liquidity_info = NftLiquidityInfo {
             token_0: params.token_0.clone(),
             token_1: params.token_1.clone(),
@@ -180,13 +154,12 @@ impl Contract {
             upper_tick: params.upper_tick,
             liquidity,
         };
-        let nft_description = format!("ZSwap Liquidity NFT for {}", &pool);
 
         let liquidity_nft_metadata = TokenMetadata {
-            title: Some("ZSwap Liquidity NFT".to_string()),
+            title: Some(nft_title),
             description: Some(nft_description),
-            media: None,
-            media_hash: None,
+            media: Some(nft_media),
+            media_hash: Some(Base64VecU8::from(nft_media_hash)),
             copies: None,
             issued_at: None,
             expires_at: None,
@@ -232,6 +205,86 @@ impl Contract {
             U128::from(amount_0)
         }
     }
+
+    pub fn get_liquidity_for_amounts(
+        &self,
+        slot_0: Slot0,
+        lower_tick: i32,
+        upper_tick: i32,
+        amount_0_desired: U128,
+        amount_1_desired: U128,
+    ) -> U128 {
+        self.internal_calculate_liquidity(
+            slot_0,
+            lower_tick,
+            upper_tick,
+            amount_0_desired.0,
+            amount_1_desired.0,
+        )
+        .into()
+    }
+
+    pub fn calculate_amount_1_with_amount_0(
+        &self,
+        amount_0: U128,
+        sqrt_price_x96: U128,
+        lower_tick: i32,
+        upper_tick: i32,
+    ) -> U128 {
+        let sqrt_price_x96 = U256::from(sqrt_price_x96.0);
+        let sqrt_price_lower_x96 = tick_math::get_sqrt_ratio_at_tick(lower_tick);
+        let sqrt_price_upper_x96 = tick_math::get_sqrt_ratio_at_tick(upper_tick);
+
+        if !(sqrt_price_lower_x96..=sqrt_price_upper_x96).contains(&sqrt_price_x96) {
+            return U128::from(0);
+        }
+
+        let liquidity = liquidity_math::get_liquidity_for_amount_0(
+            sqrt_price_x96,
+            sqrt_price_upper_x96,
+            amount_0.0,
+        );
+
+        sqrt_price_math::get_amount_1_delta_signed(
+            sqrt_price_lower_x96,
+            sqrt_price_x96,
+            liquidity as i128,
+        )
+        .abs()
+        .as_u128()
+        .into()
+    }
+
+    pub fn calculate_amount_0_with_amount_1(
+        &self,
+        amount_1: U128,
+        sqrt_price_x96: U128,
+        lower_tick: i32,
+        upper_tick: i32,
+    ) -> U128 {
+        let sqrt_price_x96 = U256::from(sqrt_price_x96.0);
+        let sqrt_price_lower_x96 = tick_math::get_sqrt_ratio_at_tick(lower_tick);
+        let sqrt_price_upper_x96 = tick_math::get_sqrt_ratio_at_tick(upper_tick);
+
+        if !(sqrt_price_lower_x96..=sqrt_price_upper_x96).contains(&sqrt_price_x96) {
+            return U128::from(0);
+        }
+
+        let liquidity = liquidity_math::get_liquidity_for_amount_1(
+            sqrt_price_lower_x96,
+            sqrt_price_x96,
+            amount_1.0,
+        );
+
+        sqrt_price_math::get_amount_0_delta_signed(
+            sqrt_price_x96,
+            sqrt_price_upper_x96,
+            liquidity as i128,
+        )
+        .abs()
+        .as_u128()
+        .into()
+    }
 }
 
 /*
@@ -239,4 +292,39 @@ impl Contract {
  * Learn more about Rust tests: https://doc.rust-lang.org/book/ch11-01-writing-tests.html
  */
 #[cfg(test)]
-mod tests {}
+mod tests {
+    use super::*;
+
+    use near_sdk::{test_utils::VMContextBuilder, testing_env};
+
+    #[test]
+    fn test_calculate_amount_0_and_amount_1() {
+        let factory_id = AccountId::new_unchecked("factory.testnet".to_string());
+        testing_env!(VMContextBuilder::new().build());
+
+        let contract = Contract::new(factory_id);
+        let sqrt_price_x96 = U128::from(10 * (2_u128).pow(96));
+        let lower_tick = 42000;
+        let upper_tick = 48000;
+        let amount_0 = U128::from(505327);
+        let amount_1 = U128::from(100_000_111);
+
+        let calculated_amount_1 = contract.calculate_amount_1_with_amount_0(
+            amount_0,
+            sqrt_price_x96,
+            lower_tick,
+            upper_tick,
+        );
+
+        assert_eq!(calculated_amount_1, amount_1);
+
+        let calculated_amount_0 = contract.calculate_amount_0_with_amount_1(
+            amount_1,
+            sqrt_price_x96,
+            lower_tick,
+            upper_tick,
+        );
+
+        assert_eq!(calculated_amount_0, amount_0);
+    }
+}

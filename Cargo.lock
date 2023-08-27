@@ -3455,8 +3455,9 @@ dependencies = [
 name = "zswap-manager"
 version = "1.0.0"
 dependencies = [
+ "base64 0.21.2",
  "cargo-husky",
- "ethnum",
+ "hex 0.4.3",
  "near-contract-standards",
  "near-sdk",
  "uint",
