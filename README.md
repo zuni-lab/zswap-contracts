@@ -40,28 +40,32 @@ $ near call znear.zswap.testnet mint '{"receiver_id":"zswap.testnet", "amount": 
 $ near call zusd.zswap.testnet mint '{"receiver_id":"zswap.testnet", "amount": "200000"}' --deposit 1 --accountId zswap.testnet
 ```
 
-## Step 2: Create Pool with Facotry
+## Step 2: Create Pool with Factory
 
 If testing with `ZNEAR` and `ZUSD`, you can skip this step.
 
 1. Create a new pool for ZNEAR - ZUSD. Factory only supports creating a new pool with 2 fee levels: 0.05% and 0.3%.
 
 ```sh
-$ near call factory2.zswap.testnet create_pool \
+$ ZSWAP_MANAGER=manager3.zswap.testnet
+
+$ near call $ZSWAP_MANAGER create_pool \
   '{"token_0":"znear.zswap.testnet","token_1":"zusd.zswap.testnet","fee":3000}' \
   --accountId zswap.testnet --gas 300000000000000 --deposit 25
 
 # return pool address
-'2e4e39194a383739.factory2.zswap.testnet'
+'2e4e39194a383739.factory3.zswap.testnet'
 ```
 
 - View pool state
 
 ```sh
-$ near view factory2.zswap.testnet get_pool '{"token_0":"zusd.zswap.testnet", "token_1":"znear.zswap.testnet","fee":3000}'
+$ ZSWAP_FACTORY=factory3.zswap.testnet
+
+$ near view $ZSWAP_FACTORY get_pool '{"token_0":"zusd.zswap.testnet", "token_1":"znear.zswap.testnet","fee":3000}'
 
 {
-  pool_id: '2e4e39194a383739.factory2.zswap.testnet',
+  pool_id: '2e4e39194a383739.factory3.zswap.testnet',
   token_0: 'znear.zswap.testnet',
   token_1: 'zusd.zswap.testnet',
   fee: 3000,
@@ -69,7 +73,7 @@ $ near view factory2.zswap.testnet get_pool '{"token_0":"zusd.zswap.testnet", "t
 }
 ```
 
-2. Initialize `sqrt_price`
+2. Initialize `sqrt_price` (token0 / token1)
 
 ```sh
 # 1 ZNEAR = 100 ZUSD, tick ~ 46054
@@ -82,18 +86,12 @@ $ near view $ZSWAP_POOL get_slot_0 '{}'
 
 ```
 
-3. Register storage for `ZswapPool` in FT contracts.
+3. Get list of existed tokens in ZSwap Manager
 
 ```sh
-$ ZNEAR=znear.zswap.testnet
-$ ZUSD=zusd.zswap.testnet
-$ ZSWAP_POOL=2e4e39194a383739.factory2.zswap.testnet
+$ near view $ZSWAP_MANAGER get_fungible_tokens
 
-# register storage for `ZswapPool` in `ZNEAR`
-$ near call $ZNEAR storage_deposit '{"account_id":"'$ZSWAP_POOL'"}' --deposit 1 --accountId zswap.testnet
-
-# register storage for `ZswapPool` in `ZUSD`
-$ near call $ZUSD storage_deposit '{"account_id":"'$ZSWAP_POOL'"}' --deposit 1 --accountId zswap.testnet
+[ "znear.zswap.test", "zusd.zswap.testnet" ]
 ```
 
 ## Step 3: Mint Liquidity
@@ -137,8 +135,6 @@ $ near call $ZUSD ft_transfer_call '{"receiver_id":"'$ZSWAP_POOL'", "amount":"'$
 - View the corresponding amount with the other.
 
 ```sh
-$ ZSWAP_MANAGER=manager.zswap.testnet
-
 $ SQRT_PRICE=792281625142643375935439503360
 
 $ near view $ZSWAP_MANAGER calculate_amount_1_with_amount_0 '{"amount_0":"'$ZNEAR_AMOUNT'","sqrt_price_x96":"'$SQRT_PRICE'","lower_tick":42000,"upper_tick":48000}'

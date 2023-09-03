@@ -1,38 +1,47 @@
+use ft_storage::ext_ft_storage;
 use near_contract_standards::fungible_token::metadata::{ext_ft_metadata, FungibleTokenMetadata};
 use near_contract_standards::non_fungible_token::metadata::{
     NFTContractMetadata, TokenMetadata, NFT_METADATA_SPEC,
 };
 use near_contract_standards::non_fungible_token::NonFungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
-use near_sdk::collections::{LazyOption, LookupMap};
+use near_sdk::collections::{LazyOption, LookupMap, UnorderedSet};
 use near_sdk::json_types::{Base64VecU8, I128, U128};
 use near_sdk::{
-    env, log, near_bindgen, serde_json, AccountId, BorshStorageKey, CryptoHash, PanicOnDefault,
-    Promise, PromiseError,
+    env, log, near_bindgen, serde_json, AccountId, Balance, BorshStorageKey, CryptoHash,
+    PanicOnDefault, Promise, PromiseError,
 };
-use pool::{ext_zswap_pool, Slot0};
 use zswap_math_library::num256::U256;
 use zswap_math_library::{liquidity_math, sqrt_price_math, tick_math};
 
+use crate::error::*;
+use crate::factory::ext_zswap_factory;
+use crate::pool::{ext_zswap_pool, Slot0};
 use crate::utils::*;
 
 mod callback;
 mod error;
+mod factory;
 pub mod ft_receiver;
+mod ft_storage;
 mod internal;
 mod nft;
 mod pool;
 pub mod utils;
+
+const NEAR_PER_STORAGE: Balance = 10_000_000_000_000_000_000; // 10e18yⓃ
+const FT_STORAGE_DEPOSIT: Balance = 1500 * NEAR_PER_STORAGE;
 
 // Define the contract structure
 #[near_bindgen]
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     factory: AccountId,
-    token_id: u128,
+    nft_id: u128,
     nft: NonFungibleToken,
     metadata: LazyOption<NFTContractMetadata>,
     account_tokens: LookupMap<CryptoHash, u128>,
+    fungible_tokens: UnorderedSet<AccountId>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
@@ -43,6 +52,7 @@ pub(crate) enum StorageKey {
     Enumeration,
     Approval,
     AccountTokens,
+    FungibleTokens,
 }
 
 // Implement the contract structure
@@ -68,23 +78,43 @@ impl Contract {
         };
         Self {
             factory,
-            token_id: 0,
+            nft_id: 0,
             nft,
             metadata: LazyOption::new(StorageKey::Metadata, Some(&metadata)),
             account_tokens: LookupMap::new(StorageKey::AccountTokens),
+            fungible_tokens: UnorderedSet::new(StorageKey::FungibleTokens),
         }
     }
 
-    #[allow(unused)]
-    pub fn get_position(
-        &self,
-        token_1: AccountId,
-        token_2: AccountId,
-        fee: u32,
-        owner: AccountId,
-        lower_tick: i32,
-        upper_tick: i32,
-    ) {
+    #[payable]
+    pub fn create_pool(&mut self, token_0: AccountId, token_1: AccountId, fee: u32) -> Promise {
+        let is_new_token_0 = self.fungible_tokens.insert(&token_0);
+        let is_new_token_1 = self.fungible_tokens.insert(&token_1);
+        if !is_new_token_0 && !is_new_token_1 {
+            env::panic_str(POOL_ALREADY_EXISTS);
+        }
+
+        let create_pool_promise = ext_zswap_factory::ext(self.factory.clone())
+            .with_attached_deposit(env::attached_deposit() - 2 * FT_STORAGE_DEPOSIT)
+            .with_unused_gas_weight(30)
+            .create_pool(token_0.clone(), token_1.clone(), fee);
+
+        let token_0_storage_deposit_promise = ext_ft_storage::ext(token_0.clone())
+            .with_attached_deposit(FT_STORAGE_DEPOSIT)
+            .storage_deposit(Some(env::current_account_id()), None);
+        let token_1_storage_deposit_promise = ext_ft_storage::ext(token_1.clone())
+            .with_attached_deposit(FT_STORAGE_DEPOSIT)
+            .storage_deposit(Some(env::current_account_id()), None);
+
+        if is_new_token_0 && is_new_token_1 {
+            token_0_storage_deposit_promise
+                .and(token_1_storage_deposit_promise)
+                .then(create_pool_promise)
+        } else if is_new_token_0 {
+            token_0_storage_deposit_promise.then(create_pool_promise)
+        } else {
+            token_1_storage_deposit_promise.then(create_pool_promise)
+        }
     }
 
     #[payable]
@@ -171,11 +201,11 @@ impl Contract {
         };
 
         self.nft.internal_mint(
-            self.token_id.to_string(),
+            self.nft_id.to_string(),
             recipient.clone(),
             Some(liquidity_nft_metadata),
         );
-        self.token_id += 1;
+        self.nft_id += 1;
 
         ext_zswap_pool::ext(pool)
             .mint(
@@ -284,6 +314,10 @@ impl Contract {
         .abs()
         .as_u128()
         .into()
+    }
+
+    pub fn get_fungible_tokens(&self) -> Vec<AccountId> {
+        self.fungible_tokens.to_vec()
     }
 }
 
