@@ -3426,6 +3426,7 @@ name = "zswap-factory"
 version = "1.0.0"
 dependencies = [
  "cargo-husky",
+ "near-contract-standards",
  "near-sdk",
  "uint",
  "zswap-math-library",

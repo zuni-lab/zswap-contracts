@@ -5,6 +5,11 @@ use crate::*;
 #[near_bindgen]
 impl Contract {
     #[private]
+    pub fn remove_stored_contract(&mut self) {
+        self.code.remove();
+    }
+
+    #[private]
     pub fn update_stored_contract(&mut self) {
         self.code
             .set(&env::input().expect("Error: No input").to_vec());
@@ -68,8 +73,8 @@ impl Contract {
             .transfer(attached)
             .deploy_contract(code)
             .and(ext_zswap_pool::ext(subaccount.clone()).new(
-                ordered_token_0,
-                ordered_token_1,
+                ordered_token_0.clone(),
+                ordered_token_1.clone(),
                 tick_spacing_opt.unwrap(),
                 fee,
             ));
@@ -79,6 +84,8 @@ impl Contract {
             Self::ext(env::current_account_id()).create_factory_subaccount_and_deploy_callback(
                 subaccount,
                 env::predecessor_account_id(),
+                ordered_token_0,
+                ordered_token_1,
                 attached,
             ),
         )

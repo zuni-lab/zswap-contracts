@@ -2,16 +2,16 @@ use base64::engine::general_purpose;
 use base64::Engine;
 use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
-use near_sdk::{env, AccountId, CryptoHash};
+use near_sdk::{env, AccountId};
 
-pub struct GetPositionParams {
-    pub token_0: AccountId,
-    pub token_1: AccountId,
-    pub fee: u32,
-    pub owner: AccountId,
-    pub lower_tick: i32,
-    pub upper_tick: i32,
-}
+// pub struct GetPositionParams {
+//     pub token_0: AccountId,
+//     pub token_1: AccountId,
+//     pub fee: u32,
+//     pub owner: AccountId,
+//     pub lower_tick: i32,
+//     pub upper_tick: i32,
+// }
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
@@ -74,9 +74,9 @@ pub struct NftLiquidityInfo {
 //     pub payer: AccountId,
 // }
 
-pub fn get_token_key(owner: &AccountId, token_id: &AccountId) -> CryptoHash {
-    env::keccak256_array(&[owner.as_bytes(), token_id.as_bytes()].concat())
-}
+// pub fn get_token_key(owner: &AccountId, token_id: &AccountId) -> CryptoHash {
+//     env::keccak256_array(&[owner.as_bytes(), token_id.as_bytes()].concat())
+// }
 
 pub fn generate_nft_media(
     symbol_0: &str,

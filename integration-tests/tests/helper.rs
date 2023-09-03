@@ -2,6 +2,7 @@ use near_sdk::json_types::U128;
 use near_units::parse_near;
 use serde_json::json;
 use workspaces::{Account, AccountId, Contract, DevNetwork, Worker};
+use zswap_factory::pool::PoolView;
 
 const FT_CONTRACT: &[u8] = include_bytes!("../../res/mock/fungible_token.wasm");
 const ZSWAP_MANAGER_CONTRACT: &[u8] = include_bytes!("../../res/zswap_manager.wasm");
@@ -59,14 +60,30 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
         .into_result()?;
     println!("\tFactory contract: {}", factory_contract.id());
 
-    let pool_id = deployer
-        .call(factory_contract.id(), "create_pool")
+    manager_contract
+        .call("new")
+        .args_json(json!({"factory": factory_contract.id()}))
+        .max_gas()
+        .transact()
+        .await?
+        .into_result()?;
+    println!("\tManager contract: {}", manager_contract.id());
+
+    deployer
+        .call(manager_contract.id(), "create_pool")
         .args_json((token_0_contract.id(), token_1_contract.id(), POOL_FEE))
         .deposit(parse_near!("30 N"))
         .max_gas()
         .transact()
         .await?
-        .json::<AccountId>()?;
+        .into_result()?;
+    let pool = deployer
+        .call(factory_contract.id(), "get_pool")
+        .args_json((token_0_contract.id(), token_1_contract.id(), POOL_FEE))
+        .view()
+        .await?
+        .json::<PoolView>()?;
+    let pool_id: AccountId = pool.pool_id.to_string().parse().unwrap();
     println!("\tPool contract: {}", pool_id);
 
     let initial_sqrt_price_x96 = U128::from(10 * (2_u128).pow(96));
@@ -78,49 +95,6 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
         .await?
         .into_result()?;
     println!("\tInitialized with token_1/token_0: 100");
-
-    manager_contract
-        .call("new")
-        .args_json(json!({"factory": factory_contract.id()}))
-        .max_gas()
-        .transact()
-        .await?
-        .into_result()?;
-    println!("\tManager contract: {}", manager_contract.id());
-
-    // add storage deposit for manager & pool contract
-    deployer
-        .call(token_0_contract.id(), "storage_deposit")
-        .args_json((manager_contract.id(), None::<bool>))
-        .deposit(parse_near!("1 N"))
-        .max_gas()
-        .transact()
-        .await?
-        .into_result()?;
-    deployer
-        .call(token_0_contract.id(), "storage_deposit")
-        .args_json((&pool_id, None::<bool>))
-        .deposit(parse_near!("1 N"))
-        .max_gas()
-        .transact()
-        .await?
-        .into_result()?;
-    deployer
-        .call(token_1_contract.id(), "storage_deposit")
-        .args_json((manager_contract.id(), None::<bool>))
-        .deposit(parse_near!("1 N"))
-        .max_gas()
-        .transact()
-        .await?
-        .into_result()?;
-    deployer
-        .call(token_1_contract.id(), "storage_deposit")
-        .args_json((&pool_id, None::<bool>))
-        .deposit(parse_near!("1 N"))
-        .max_gas()
-        .transact()
-        .await?
-        .into_result()?;
 
     Ok(TestContext {
         token_0_contract,
