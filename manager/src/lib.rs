@@ -1,4 +1,3 @@
-use ft_storage::ext_ft_storage;
 use near_contract_standards::fungible_token::metadata::{ext_ft_metadata, FungibleTokenMetadata};
 use near_contract_standards::non_fungible_token::metadata::{
     NFTContractMetadata, TokenMetadata, NFT_METADATA_SPEC,
@@ -16,6 +15,8 @@ use zswap_math_library::{liquidity_math, sqrt_price_math, tick_math};
 
 use crate::error::*;
 use crate::factory::ext_zswap_factory;
+use crate::ft_storage::ext_ft_storage;
+use crate::nft::*;
 use crate::pool::{ext_zswap_pool, Slot0};
 use crate::utils::*;
 
@@ -37,22 +38,24 @@ const FT_STORAGE_DEPOSIT: Balance = 1500 * NEAR_PER_STORAGE;
 #[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
 pub struct Contract {
     factory: AccountId,
-    nft_id: u128,
-    nft: NonFungibleToken,
-    metadata: LazyOption<NFTContractMetadata>,
     account_tokens: LookupMap<CryptoHash, u128>,
     fungible_tokens: UnorderedSet<AccountId>,
+    nft_positions: LookupMap<u128, NftPosition>,
+    nft: NonFungibleToken,
+    nft_id: u128,
+    metadata: LazyOption<NFTContractMetadata>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
 pub(crate) enum StorageKey {
+    AccountTokens,
+    FungibleTokens,
+    NftPositions,
     NonFungibleToken,
     Metadata,
     TokenMetadata,
     Enumeration,
     Approval,
-    AccountTokens,
-    FungibleTokens,
 }
 
 // Implement the contract structure
@@ -78,11 +81,12 @@ impl Contract {
         };
         Self {
             factory,
-            nft_id: 0,
-            nft,
-            metadata: LazyOption::new(StorageKey::Metadata, Some(&metadata)),
             account_tokens: LookupMap::new(StorageKey::AccountTokens),
             fungible_tokens: UnorderedSet::new(StorageKey::FungibleTokens),
+            nft_positions: LookupMap::new(StorageKey::NftPositions),
+            nft,
+            nft_id: 0,
+            metadata: LazyOption::new(StorageKey::Metadata, Some(&metadata)),
         }
     }
 
@@ -168,9 +172,9 @@ impl Contract {
         let nft_title = format!("{}/{}", symbol_0, symbol_1);
         let nft_description = format!("ZSwap Liquidity NFT for {}", &pool);
         let nft_media = generate_nft_media(
+            self.nft_id,
             symbol_0,
             symbol_1,
-            &recipient,
             params.lower_tick,
             params.upper_tick,
             params.fee,
@@ -202,14 +206,23 @@ impl Contract {
 
         self.nft.internal_mint(
             self.nft_id.to_string(),
-            recipient.clone(),
+            recipient,
             Some(liquidity_nft_metadata),
+        );
+        self.nft_positions.insert(
+            &self.nft_id,
+            &NftPosition {
+                pool: pool.clone(),
+                lower_tick: params.lower_tick,
+                upper_tick: params.upper_tick,
+                liquidity,
+            },
         );
         self.nft_id += 1;
 
         ext_zswap_pool::ext(pool)
             .mint(
-                recipient,
+                env::current_account_id(), // manager owns liquidity, recipient owns NFT
                 params.lower_tick,
                 params.upper_tick,
                 U128::from(liquidity),
@@ -234,6 +247,58 @@ impl Contract {
             let amount_0 = -amounts[0].0 as u128;
             U128::from(amount_0)
         }
+    }
+
+    #[payable]
+    pub fn burn(&mut self, nft_id: U128) {
+        let nft_position = self.nft_positions.get(&nft_id.0);
+        if nft_position.is_none() {
+            env::panic_str(NFT_NOT_FOUND);
+        }
+
+        let nft_position = nft_position.unwrap();
+        let owner = self.nft.owner_by_id.get(&nft_id.0.to_string()).unwrap();
+        if owner != env::predecessor_account_id() {
+            env::panic_str(NFT_NOT_OWNED_BY_CALLER);
+        }
+
+        ext_zswap_pool::ext(nft_position.pool.clone())
+            .burn(
+                nft_position.lower_tick,
+                nft_position.upper_tick,
+                nft_position.liquidity.into(),
+            )
+            .then(Self::ext(env::current_account_id()).burn_callback(
+                nft_position.pool,
+                owner,
+                nft_id,
+                nft_position.lower_tick,
+                nft_position.upper_tick,
+            ));
+    }
+
+    #[private]
+    pub fn burn_callback(
+        &mut self,
+        #[callback_result] token_amounts_res: Result<[U128; 2], PromiseError>,
+        pool: AccountId,
+        recipient: AccountId,
+        nft_id: U128,
+        lower_tick: i32,
+        upper_tick: i32,
+    ) -> Promise {
+        self.nft.internal_burn(nft_id.0.to_string(), &recipient);
+        self.nft_positions.remove(&nft_id.0);
+
+        let token_amounts = token_amounts_res.unwrap();
+
+        ext_zswap_pool::ext(pool).collect(
+            recipient,
+            lower_tick,
+            upper_tick,
+            token_amounts[0],
+            token_amounts[1],
+        )
     }
 
     pub fn get_liquidity_for_amounts(

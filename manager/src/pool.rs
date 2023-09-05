@@ -27,5 +27,16 @@ pub trait ZswapPool {
         sqrt_price_limit_x96: Option<U128>,
     ) -> PromiseOrValue<U128>;
 
+    fn burn(&mut self, lower_tick: i32, upper_tick: i32, amount: U128) -> [U128; 2];
+
+    fn collect(
+        &mut self,
+        recipient: AccountId,
+        lower_tick: i32,
+        upper_tick: i32,
+        amount_0_requested: U128,
+        amount_1_requested: U128,
+    ) -> [U128; 2];
+
     fn get_slot_0(&self) -> Slot0;
 }

@@ -79,9 +79,9 @@ pub struct NftLiquidityInfo {
 // }
 
 pub fn generate_nft_media(
+    nft_id: u128,
     symbol_0: &str,
     symbol_1: &str,
-    owner: &AccountId,
     lower_tick: i32,
     upper_tick: i32,
     fee: u32,
@@ -91,7 +91,7 @@ pub fn generate_nft_media(
         "<style>.tokens { font: bold 30px sans-serif; }",
         ".fee { font: normal 26px sans-serif; }",
         ".tick { font: normal 18px sans-serif; }</style>",
-        &render_background(owner, lower_tick, upper_tick),
+        &render_background(nft_id, lower_tick, upper_tick),
         &render_top(symbol_0, symbol_1, fee),
         &render_bottom(lower_tick, upper_tick),
         "</svg>",
@@ -103,10 +103,10 @@ pub fn generate_nft_media(
     ["data:image/svg+xml;base64,", &image_base64].join("")
 }
 
-fn render_background(owner: &AccountId, lower_tick: i32, upper_tick: i32) -> String {
+fn render_background(nft_id: u128, lower_tick: i32, upper_tick: i32) -> String {
     let key = env::keccak256_array(
         &[
-            owner.as_bytes(),
+            &nft_id.to_le_bytes() as &[u8],
             &lower_tick.to_le_bytes(),
             &upper_tick.to_le_bytes(),
         ]

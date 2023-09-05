@@ -35,12 +35,12 @@ impl Contract {
 
     pub fn modify_position(
         &mut self,
-        owner: AccountId,
+        owner: &AccountId,
         lower_tick: i32,
         upper_tick: i32,
         liquidity_delta: i128,
     ) -> [i128; 2] {
-        let position_key = self.get_position_key(&owner, lower_tick, upper_tick);
+        let position_key = self.get_position_key(owner, lower_tick, upper_tick);
         let mut position = self.positions.get(&position_key).unwrap_or_default();
 
         let current_tick = self.slot_0.tick;

@@ -12,7 +12,6 @@ use near_sdk::{
 
 use zswap_math_library::full_math::{FullMath, FullMathTrait};
 use zswap_math_library::num160::AsU160;
-use zswap_math_library::num24::AsI24;
 use zswap_math_library::num256::U256;
 use zswap_math_library::position::PositionInfo;
 use zswap_math_library::tick::TickInfo;
@@ -136,7 +135,7 @@ impl CoreZswapPool for Contract {
         if amount.0 == 0 {
             env::panic_str(ZERO_LIQUIDITY);
         }
-        let amounts = self.modify_position(owner.clone(), lower_tick, upper_tick, amount.0 as i128);
+        let amounts = self.modify_position(&owner, lower_tick, upper_tick, amount.0 as i128);
         let amount_0 = amounts[0] as u128;
         let amount_1 = amounts[1] as u128;
         log!("Used amount_0: {}", amount_0);
@@ -203,7 +202,7 @@ impl CoreZswapPool for Contract {
             (step.next_tick, _) = tick_bitmap::next_initialized_tick_within_one_word(
                 &self.tick_bitmap,
                 state.tick,
-                (self.tick_spacing as i32).as_i24(),
+                self.tick_spacing as i32,
                 zero_for_one,
             );
 
@@ -336,6 +335,78 @@ impl CoreZswapPool for Contract {
         }
 
         PromiseOrValue::Value(U128::from(amount_out))
+    }
+
+    #[payable]
+    fn burn(&mut self, lower_tick: i32, upper_tick: i32, amount: U128) -> [U128; 2] {
+        if lower_tick >= upper_tick
+            || lower_tick < TickConstants::MIN_TICK
+            || upper_tick > TickConstants::MAX_TICK
+        {
+            env::panic_str(INVALID_TICK_RANGE);
+        }
+
+        if amount.0 == 0 {
+            env::panic_str(ZERO_LIQUIDITY);
+        }
+
+        let owner = env::predecessor_account_id();
+        let amounts = self.modify_position(&owner, lower_tick, upper_tick, -(amount.0 as i128));
+        let amount_0 = amounts[0].unsigned_abs();
+        let amount_1 = amounts[1].unsigned_abs();
+
+        if amount_0 > 0 || amount_1 > 0 {
+            let position_key = self.get_position_key(&owner, lower_tick, upper_tick);
+            let mut position = self.positions.get(&position_key).unwrap();
+            position.tokens_owed_0 += amount_0;
+            position.tokens_owed_1 += amount_1;
+
+            self.positions.insert(&position_key, &position);
+        }
+
+        [U128::from(amount_0), U128::from(amount_1)]
+    }
+
+    #[payable]
+    fn collect(
+        &mut self,
+        recipient: AccountId,
+        lower_tick: i32,
+        upper_tick: i32,
+        amount_0_requested: U128,
+        amount_1_requested: U128,
+    ) -> [U128; 2] {
+        if lower_tick >= upper_tick
+            || lower_tick < TickConstants::MIN_TICK
+            || upper_tick > TickConstants::MAX_TICK
+        {
+            env::panic_str(INVALID_TICK_RANGE);
+        }
+
+        let owner = env::predecessor_account_id();
+        let position_key = self.get_position_key(&owner, lower_tick, upper_tick);
+        let mut position = self.positions.get(&position_key).unwrap();
+
+        let amount_0 = position.tokens_owed_0.min(amount_0_requested.0);
+        let amount_1 = position.tokens_owed_1.min(amount_1_requested.0);
+
+        if amount_0 > 0 {
+            position.tokens_owed_0 -= amount_0;
+            ext_ft_core::ext(self.token_0.clone()).ft_transfer(
+                recipient.clone(),
+                amount_0.into(),
+                None,
+            );
+        }
+
+        if amount_1 > 0 {
+            position.tokens_owed_1 -= amount_1;
+            ext_ft_core::ext(self.token_1.clone()).ft_transfer(recipient, amount_1.into(), None);
+        }
+
+        self.positions.insert(&position_key, &position);
+
+        [U128::from(amount_0), U128::from(amount_1)]
     }
 
     fn get_slot_0(&self) -> Slot0 {
