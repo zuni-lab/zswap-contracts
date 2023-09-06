@@ -83,7 +83,6 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
         .transact()
         .await?
         .into_result()?;
-
     let pool = deployer
         .call(factory_contract.id(), "get_pool")
         .args_json((token_0_contract.id(), token_1_contract.id(), POOL_FEE))

@@ -1,3 +1,4 @@
+use ft_storage::ext_ft_storage;
 use near_contract_standards::fungible_token::metadata::{ext_ft_metadata, FungibleTokenMetadata};
 use near_contract_standards::non_fungible_token::metadata::{
     NFTContractMetadata, TokenMetadata, NFT_METADATA_SPEC,
@@ -15,7 +16,6 @@ use zswap_math_library::{liquidity_math, sqrt_price_math, tick_math};
 
 use crate::error::*;
 use crate::factory::ext_zswap_factory;
-use crate::ft_storage::ext_ft_storage;
 use crate::nft::*;
 use crate::pool::{ext_zswap_pool, Slot0};
 use crate::utils::*;
