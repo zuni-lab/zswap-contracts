@@ -81,7 +81,7 @@ $ near view $ZSWAP_POOL get_slot_0 '{}'
 { sqrt_price_x96: '792281625142643375935439503360', tick: 46054 }
 ```
 
-2. Initialize `sqrt_price` (token0 / token1), calling when current_price is ZERO. (**Optional**)
+2 (**Optional**). Initialize `sqrt_price` (token0 / token1), calling when current_price is ZERO.
 
 ```sh
 # 1 ZNEAR = 100 ZUSD, tick ~ 46054
