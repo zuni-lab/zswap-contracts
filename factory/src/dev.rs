@@ -17,7 +17,13 @@ impl Contract {
 
     #[payable]
     #[private]
-    pub fn redeploy_pool(&mut self, token_0: AccountId, token_1: AccountId, fee: u32) -> Promise {
+    pub fn redeploy_pool(
+        &mut self,
+        token_0: AccountId,
+        token_1: AccountId,
+        fee: u32,
+        sqrt_price_x96: U128,
+    ) -> Promise {
         let tick_spacing_opt = self.fees.get(&fee);
         if tick_spacing_opt.is_none() {
             env::panic_str(UNSUPPORTED_FEE);
@@ -77,6 +83,7 @@ impl Contract {
                 ordered_token_1.clone(),
                 tick_spacing_opt.unwrap(),
                 fee,
+                sqrt_price_x96,
             ));
 
         // Add callback

@@ -5,6 +5,7 @@ use serde_json::json;
 use zswap_manager::utils::MintParams;
 
 use helper::*;
+use zswap_pool::ft_receiver::TokenReceiverMessage as PoolTokenReceiverMessage;
 use zswap_pool::utils::Slot0;
 
 mod helper;
@@ -20,13 +21,18 @@ async fn test_mint_properly() -> anyhow::Result<()> {
     // deposit token 0 & 1 into deployer
     let token_0_amount = U128::from(10_000_000);
     let token_1_amount = U128::from(100_000_000);
+
+    let approve_msg = PoolTokenReceiverMessage::Approve {
+        account_id: context.manager_contract.id().to_string().parse().unwrap(),
+    };
+
     liquidity_provider
         .call(context.token_0_contract.id(), "ft_transfer_call")
         .args_json((
             context.pool_id.clone(),
             token_0_amount,
             None::<String>,
-            String::from(""),
+            near_sdk::serde_json::to_string(&approve_msg).unwrap(),
         ))
         .deposit(ONE_YOCTO)
         .max_gas()
@@ -39,7 +45,7 @@ async fn test_mint_properly() -> anyhow::Result<()> {
             context.pool_id.clone(),
             token_1_amount,
             None::<String>,
-            String::from(""),
+            near_sdk::serde_json::to_string(&approve_msg).unwrap(),
         ))
         .deposit(ONE_YOCTO)
         .max_gas()

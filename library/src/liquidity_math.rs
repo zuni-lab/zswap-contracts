@@ -110,7 +110,7 @@ pub fn get_liquidity_for_amounts(
 
 pub fn add_liquidity(x: u128, y: i128) -> u128 {
     let z: u128 = if y < 0 {
-        x - (y as u128)
+        x - y.unsigned_abs()
     } else {
         x + (y as u128)
     };

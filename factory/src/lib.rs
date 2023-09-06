@@ -1,5 +1,6 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, LookupMap, UnorderedSet};
+use near_sdk::json_types::U128;
 use near_sdk::{
     env, log, near_bindgen, AccountId, Balance, BorshStorageKey, PanicOnDefault, Promise,
     PromiseResult,
@@ -65,7 +66,13 @@ impl Contract {
     }
 
     #[payable]
-    pub fn create_pool(&mut self, token_0: AccountId, token_1: AccountId, fee: u32) -> Promise {
+    pub fn create_pool(
+        &mut self,
+        token_0: AccountId,
+        token_1: AccountId,
+        fee: u32,
+        sqrt_price_x96: U128,
+    ) -> Promise {
         let tick_spacing_opt = self.fees.get(&fee);
         if tick_spacing_opt.is_none() {
             env::panic_str(UNSUPPORTED_FEE);
@@ -128,6 +135,7 @@ impl Contract {
             ordered_token_1.clone(),
             tick_spacing_opt.unwrap(),
             fee,
+            sqrt_price_x96,
         );
 
         let token_0_storage_deposit_promise = ext_ft_storage::ext(ordered_token_0.clone())
@@ -168,38 +176,30 @@ impl Contract {
 
         match env::promise_result(create_deploy_promise_idx) {
             PromiseResult::Successful(_) => {
-                log!(format!("Correctly created and deployed to {account}"));
+                log!("Correctly created and deployed to {}", account);
 
                 match env::promise_result(token_0_storage_deposit_promise_idx) {
                     PromiseResult::Successful(_) => {
-                        log!(format!(
-                            "Correctly deposited storage into token 0 {}",
-                            token_0
-                        ));
+                        log!("Correctly deposited storage into token 0 {}", token_0);
                     }
                     _ => {
-                        log!(format!("Failed to deposit storage {}", token_0));
+                        log!("Failed to deposit storage {}", token_0);
                     }
                 }
 
                 match env::promise_result(token_1_storage_deposit_promise_idx) {
                     PromiseResult::Successful(_) => {
-                        log!(format!(
-                            "Correctly deposited storage into token 1 {}",
-                            token_1
-                        ));
+                        log!("Correctly deposited storage into token 1 {}", token_1);
                     }
                     _ => {
-                        log!(format!("Failed to deposit storage {}", token_1));
+                        log!("Failed to deposit storage {}", token_1);
                     }
                 }
 
                 Some(account)
             }
             _ => {
-                log!(format!(
-                    "Error creating {account}, returning {attached}yⓃ to {deployer}"
-                ));
+                log!("Error creating {account}, returning {attached}yⓃ to {deployer}");
 
                 Promise::new(deployer).transfer(attached);
                 None

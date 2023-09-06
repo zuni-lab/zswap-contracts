@@ -25,7 +25,7 @@ use crate::utils::*;
 // mod callback;
 pub mod core_trait;
 mod error;
-mod ft_receiver;
+pub mod ft_receiver;
 mod internal;
 mod manager;
 pub mod utils;
@@ -39,6 +39,9 @@ pub struct Contract {
     token_1: AccountId,
     deposited_token_0: LookupMap<AccountId, u128>,
     deposited_token_1: LookupMap<AccountId, u128>,
+    approved_token_0: LookupMap<AccountId, AccountId>, // improve to use HashMap later
+    approved_token_1: LookupMap<AccountId, AccountId>, // improve to use HashMap later
+
     tick_spacing: u32,
     fee: u32,
 
@@ -61,6 +64,7 @@ pub enum StorageKey {
     FeeToTickSpacing,
     Shares { pool_id: u32 },
     DepositedToken { token_id: AccountId },
+    ApprovedToken { token_id: AccountId },
 }
 
 #[derive(Deserialize, Serialize, Debug)]
@@ -74,21 +78,33 @@ pub struct PoolView {
 #[near_bindgen]
 impl Contract {
     #[init]
-    pub fn new(token_0: AccountId, token_1: AccountId, tick_spacing: u32, fee: u32) -> Self {
+    pub fn new(
+        token_0: AccountId,
+        token_1: AccountId,
+        tick_spacing: u32,
+        fee: u32,
+        sqrt_price_x96: U128,
+    ) -> Self {
         Self {
             factory: env::predecessor_account_id(),
             token_0: token_0.clone(),
             token_1: token_1.clone(),
-            deposited_token_0: LookupMap::new(StorageKey::DepositedToken { token_id: token_0 }),
-            deposited_token_1: LookupMap::new(StorageKey::DepositedToken { token_id: token_1 }),
+            deposited_token_0: LookupMap::new(StorageKey::DepositedToken {
+                token_id: token_0.clone(),
+            }),
+            deposited_token_1: LookupMap::new(StorageKey::DepositedToken {
+                token_id: token_1.clone(),
+            }),
+            approved_token_0: LookupMap::new(StorageKey::ApprovedToken { token_id: token_0 }),
+            approved_token_1: LookupMap::new(StorageKey::ApprovedToken { token_id: token_1 }),
 
             tick_spacing,
             fee,
             fee_growth_global_0_x128: 0,
             fee_growth_global_1_x128: 0,
             slot_0: Slot0 {
-                sqrt_price_x96: U128::from(0),
-                tick: 0,
+                sqrt_price_x96,
+                tick: tick_math::get_tick_at_sqrt_ratio(U256::from(sqrt_price_x96.0)),
             },
             liquidity: 0,
             ticks: LookupMap::new(StorageKey::Pools),
@@ -120,7 +136,8 @@ impl CoreZswapPool for Contract {
     #[payable]
     fn mint(
         &mut self,
-        owner: AccountId, // TODO: fix to env::predecessor_account_id()
+        payer: AccountId,
+        recipient: AccountId,
         lower_tick: i32,
         upper_tick: i32,
         amount: U128,
@@ -135,18 +152,18 @@ impl CoreZswapPool for Contract {
         if amount.0 == 0 {
             env::panic_str(ZERO_LIQUIDITY);
         }
-        let amounts = self.modify_position(&owner, lower_tick, upper_tick, amount.0 as i128);
+        let amounts = self.modify_position(&recipient, lower_tick, upper_tick, amount.0 as i128);
         let amount_0 = amounts[0] as u128;
         let amount_1 = amounts[1] as u128;
         log!("Used amount_0: {}", amount_0);
         log!("Used amount_1: {}", amount_1);
 
         if amount_0 > 0 {
-            self.internal_collect_token_0_to_mint(&owner, amount_0);
+            self.internal_collect_token_0_to_mint(&payer, &env::predecessor_account_id(), amount_0);
         }
 
         if amount_1 > 0 {
-            self.internal_collect_token_1_to_mint(&owner, amount_1);
+            self.internal_collect_token_1_to_mint(&payer, &env::predecessor_account_id(), amount_1);
         }
 
         [U128::from(amount_0), U128::from(amount_1)]
@@ -390,18 +407,21 @@ impl CoreZswapPool for Contract {
         let amount_0 = position.tokens_owed_0.min(amount_0_requested.0);
         let amount_1 = position.tokens_owed_1.min(amount_1_requested.0);
 
+        log!("Collected amount 0: {}", amount_0);
+        log!("Collected amount 1: {}", amount_1);
+
         if amount_0 > 0 {
             position.tokens_owed_0 -= amount_0;
-            ext_ft_core::ext(self.token_0.clone()).ft_transfer(
-                recipient.clone(),
-                amount_0.into(),
-                None,
-            );
+            ext_ft_core::ext(self.token_0.clone())
+                .with_attached_deposit(ONE_YOCTO)
+                .ft_transfer(recipient.clone(), amount_0.into(), None);
         }
 
         if amount_1 > 0 {
             position.tokens_owed_1 -= amount_1;
-            ext_ft_core::ext(self.token_1.clone()).ft_transfer(recipient, amount_1.into(), None);
+            ext_ft_core::ext(self.token_1.clone())
+                .with_attached_deposit(ONE_YOCTO)
+                .ft_transfer(recipient, amount_1.into(), None);
         }
 
         self.positions.insert(&position_key, &position);

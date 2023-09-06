@@ -5,11 +5,13 @@
   "scripts": {
     "deploy": "./deploy.sh",
     "build": "./build.sh",
+    "update": "./scripts/update3.sh",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "echo no unit test",
     "test:integration": "npm run build && cargo test --package zswap-integration-tests -- --nocapture",
     "test:integration:swap": "npm run build && cargo test --package zswap-integration-tests --test swap -- --nocapture",
     "test:integration:mint": "npm run build && cargo test --package zswap-integration-tests --test mint -- --nocapture",
+    "test:integration:burn": "npm run build && cargo test --package zswap-integration-tests --test burn -- --nocapture",
     "postinstall": "echo no frontend && echo rs tests && echo rs contract"
   },
   "devDependencies": {

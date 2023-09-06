@@ -13,7 +13,8 @@ pub struct Slot0 {
 pub trait ZswapPool {
     fn mint(
         &mut self,
-        owner: AccountId,
+        payer: AccountId,
+        recipient: AccountId,
         lower_tick: i32,
         upper_tick: i32,
         amount: U128,

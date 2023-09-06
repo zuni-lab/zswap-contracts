@@ -47,21 +47,24 @@ If testing with `ZNEAR` and `ZUSD`, you can skip this step.
 1. Create a new pool for ZNEAR - ZUSD. Factory only supports creating a new pool with 2 fee levels: 0.05% and 0.3%.
 
 ```sh
+$ ZSWAP_FACTORY=factory3.zswap.testnet
 $ ZSWAP_MANAGER=manager3.zswap.testnet
 
+# 1 ZNEAR = 100 ZUSD, tick ~ 46054
+$ SQRT_PRICE_X96="792281625142643375935439503360"
 $ near call $ZSWAP_MANAGER create_pool \
-  '{"token_0":"znear.zswap.testnet","token_1":"zusd.zswap.testnet","fee":3000}' \
+  '{"token_0":"znear.zswap.testnet","token_1":"zusd.zswap.testnet","fee":3000,"sqrt_price_x96":"'$SQRT_PRICE_X96'"}' \
   --accountId zswap.testnet --gas 300000000000000 --deposit 25
 
 # return pool address
 '2e4e39194a383739.factory3.zswap.testnet'
+
+$ ZSWAP_POOL="2e4e39194a383739.factory3.zswap.testnet"
 ```
 
 - View pool state
 
 ```sh
-$ ZSWAP_FACTORY=factory3.zswap.testnet
-
 $ near view $ZSWAP_FACTORY get_pool '{"token_0":"zusd.zswap.testnet", "token_1":"znear.zswap.testnet","fee":3000}'
 
 {
@@ -71,9 +74,14 @@ $ near view $ZSWAP_FACTORY get_pool '{"token_0":"zusd.zswap.testnet", "token_1":
   fee: 3000,
   tick_spacing: 60
 }
+
+# view current price
+$ near view $ZSWAP_POOL get_slot_0 '{}'
+
+{ sqrt_price_x96: '792281625142643375935439503360', tick: 46054 }
 ```
 
-2. Initialize `sqrt_price` (token0 / token1)
+2. Initialize `sqrt_price` (token0 / token1), calling when current_price is ZERO. (**Optional**)
 
 ```sh
 # 1 ZNEAR = 100 ZUSD, tick ~ 46054
@@ -101,7 +109,8 @@ $ near view $ZSWAP_MANAGER get_fungible_tokens
 ```sh
 $ ZNEAR_AMOUNT=10000000
 
-$ near call $ZNEAR ft_transfer_call '{"receiver_id":"'$ZSWAP_POOL'", "amount":"'$ZNEAR_AMOUNT'", "msg":""}' --depositYocto 1 --gas 300000000000000 --accountId zswap.testnet
+$ MSG='{\"approve\":{\"account_id\":\"'$ZSWAP_MANAGER'\"}}'
+$ near call $ZNEAR ft_transfer_call '{"receiver_id":"'$ZSWAP_POOL'", "amount":"'$ZNEAR_AMOUNT'", "msg":"'$MSG'"}' --depositYocto 1 --gas 300000000000000 --accountId zswap.testnet
 ```
 
 2. Deposit ZUSD into `ZswapPool`
@@ -109,7 +118,8 @@ $ near call $ZNEAR ft_transfer_call '{"receiver_id":"'$ZSWAP_POOL'", "amount":"'
 ```sh
 $ ZUSD_AMOUNT=100000000
 
-$ near call $ZUSD ft_transfer_call '{"receiver_id":"'$ZSWAP_POOL'", "amount":"'$ZUSD_AMOUNT'", "msg":""}' --depositYocto 1 --gas 300000000000000 --accountId zswap.testnet
+$ MSG='{\"approve\":{\"account_id\":\"'$ZSWAP_MANAGER'\"}}'
+$ near call $ZUSD ft_transfer_call '{"receiver_id":"'$ZSWAP_POOL'", "amount":"'$ZUSD_AMOUNT'", "msg":"'$MSG'"}' --depositYocto 1 --gas 300000000000000 --accountId zswap.testnet
 ```
 
 3. Mint liquidity
@@ -147,7 +157,7 @@ $ near view  $ZSWAP_MANAGER calculate_amount_0_with_amount_1 '{"amount_1":"'$ZUS
 ```
 
 ```sh
-$ near call $ZSWAP_MANAGER mint '{"params":{"token_0":"'$ZNEAR'","token_1":"'$ZUSD'","fee":3000,"lower_tick":46000,"upper_tick":46100, "amount_0_desired":"'$ZNEAR_AMOUNT'","amount_1_desired":"'$ZUSD_AMOUNT'","amount_0_min":"100","amount_1_min":"100"}}' --gas 300000000000000 --accountId zswap.testnet --deposit 0.1
+$ near call $ZSWAP_MANAGER mint '{"params":{"token_0":"'$ZNEAR'","token_1":"'$ZUSD'","fee":3000,"lower_tick":42000,"upper_tick":48000, "amount_0_desired":"'$ZNEAR_AMOUNT'","amount_1_desired":"'$ZUSD_AMOUNT'","amount_0_min":"100","amount_1_min":"100"}}' --gas 300000000000000 --accountId zswap.testnet --deposit 0.1
 
 # Return amount_0 & amount_1
 [ '505327', '100000000' ]
@@ -179,4 +189,11 @@ $ ZNEAR_AMOUNT=100
 $ SWAP_MSG='{\"swap_single\":{\"token_out\":\"'$ZUSD'\",\"fee\":3000}}'
 
 $ near call $ZNEAR ft_transfer_call '{"receiver_id":"'$ZSWAP_MANAGER'", "amount":"'$ZNEAR_AMOUNT'", "msg":"'$SWAP_MSG'"}' --gas 300000000000000 --accountId $TRADER --depositYocto 1
+```
+
+## Step 5: Burn
+
+```sh
+$ near call $ZSWAP_MANAGER burn '{"nft_id":"0"}' --gas 300000000000000 --accountId zswap.testnet
+[ '505326', '99999999' ]
 ```

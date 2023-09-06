@@ -1,4 +1,5 @@
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
+use near_sdk::json_types::U128;
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{ext_contract, AccountId};
 
@@ -23,5 +24,11 @@ pub struct PoolInitArgs {
 
 #[ext_contract(ext_zswap_pool)]
 pub trait FtZswapPool {
-    fn new(token_0: AccountId, token_1: AccountId, tick_spacing: u32, fee: u32) -> Self;
+    fn new(
+        token_0: AccountId,
+        token_1: AccountId,
+        tick_spacing: u32,
+        fee: u32,
+        sqrt_price_x96: U128,
+    ) -> Self;
 }

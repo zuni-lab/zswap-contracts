@@ -1,7 +1,18 @@
 use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
-use near_sdk::{env, json_types::U128, log, near_bindgen, AccountId, PromiseOrValue};
+use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::{env, json_types::U128, near_bindgen, serde_json, AccountId, PromiseOrValue};
 
-use crate::{error::UNSUPPORTED_TOKEN, Contract, ContractExt};
+use crate::error::*;
+use crate::{Contract, ContractExt};
+
+/// Message parameters to receive via token function call.
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
+#[serde(rename_all = "snake_case")]
+pub enum TokenReceiverMessage {
+    /// Alternative to deposit + execute actions call.
+    Approve { account_id: AccountId },
+}
 
 #[near_bindgen]
 impl FungibleTokenReceiver for Contract {
@@ -23,9 +34,24 @@ impl FungibleTokenReceiver for Contract {
             let unused_amount = U128(0);
             PromiseOrValue::Value(unused_amount)
         } else {
-            // TODO: handle swap
-            log!("handle deposit swap here");
-            PromiseOrValue::Value(U128(0))
+            let message =
+                serde_json::from_str::<TokenReceiverMessage>(&msg).expect(WRONG_MSG_FORMAT);
+            match message {
+                TokenReceiverMessage::Approve { account_id } => {
+                    if token_in == &self.token_0 {
+                        self.token_0_deposit(&sender_id, amount.into());
+                        self.token_0_approve(&sender_id, &account_id);
+                    } else if token_in == &self.token_1 {
+                        self.token_1_deposit(&sender_id, amount.into());
+                        self.token_1_approve(&sender_id, &account_id);
+                    } else {
+                        env::panic_str(UNSUPPORTED_TOKEN)
+                    }
+
+                    let unused_amount = U128(0);
+                    PromiseOrValue::Value(unused_amount)
+                }
+            }
         }
     }
 }
@@ -55,5 +81,13 @@ impl Contract {
                 self.deposited_token_1.insert(sender_id, &amount);
             }
         }
+    }
+
+    fn token_0_approve(&mut self, owner_id: &AccountId, account_id: &AccountId) {
+        self.approved_token_0.insert(owner_id, account_id);
+    }
+
+    fn token_1_approve(&mut self, owner_id: &AccountId, account_id: &AccountId) {
+        self.approved_token_1.insert(owner_id, account_id);
     }
 }

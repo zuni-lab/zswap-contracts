@@ -91,7 +91,13 @@ impl Contract {
     }
 
     #[payable]
-    pub fn create_pool(&mut self, token_0: AccountId, token_1: AccountId, fee: u32) -> Promise {
+    pub fn create_pool(
+        &mut self,
+        token_0: AccountId,
+        token_1: AccountId,
+        fee: u32,
+        sqrt_price_x96: U128,
+    ) -> Promise {
         let is_new_token_0 = self.fungible_tokens.insert(&token_0);
         let is_new_token_1 = self.fungible_tokens.insert(&token_1);
         if !is_new_token_0 && !is_new_token_1 {
@@ -101,7 +107,7 @@ impl Contract {
         let create_pool_promise = ext_zswap_factory::ext(self.factory.clone())
             .with_attached_deposit(env::attached_deposit() - 2 * FT_STORAGE_DEPOSIT)
             .with_unused_gas_weight(30)
-            .create_pool(token_0.clone(), token_1.clone(), fee);
+            .create_pool(token_0.clone(), token_1.clone(), fee, sqrt_price_x96);
 
         let token_0_storage_deposit_promise = ext_ft_storage::ext(token_0.clone())
             .with_attached_deposit(FT_STORAGE_DEPOSIT)
@@ -206,7 +212,7 @@ impl Contract {
 
         self.nft.internal_mint(
             self.nft_id.to_string(),
-            recipient,
+            recipient.clone(),
             Some(liquidity_nft_metadata),
         );
         self.nft_positions.insert(
@@ -222,6 +228,7 @@ impl Contract {
 
         ext_zswap_pool::ext(pool)
             .mint(
+                recipient,
                 env::current_account_id(), // manager owns liquidity, recipient owns NFT
                 params.lower_tick,
                 params.upper_tick,
@@ -250,7 +257,7 @@ impl Contract {
     }
 
     #[payable]
-    pub fn burn(&mut self, nft_id: U128) {
+    pub fn burn(&mut self, nft_id: U128) -> Promise {
         let nft_position = self.nft_positions.get(&nft_id.0);
         if nft_position.is_none() {
             env::panic_str(NFT_NOT_FOUND);
@@ -274,7 +281,7 @@ impl Contract {
                 nft_id,
                 nft_position.lower_tick,
                 nft_position.upper_tick,
-            ));
+            ))
     }
 
     #[private]
@@ -289,6 +296,8 @@ impl Contract {
     ) -> Promise {
         self.nft.internal_burn(nft_id.0.to_string(), &recipient);
         self.nft_positions.remove(&nft_id.0);
+
+        log!("Burned NFT {:?}", nft_id);
 
         let token_amounts = token_amounts_res.unwrap();
 

@@ -5,7 +5,10 @@ use zswap_math_library::{
     liquidity_math, num256::U256, sqrt_price_math, tick, tick_bitmap::flip_tick, tick_math,
 };
 
-use crate::{error::INSUFFICIENT_INPUT_AMOUNT, Contract};
+use crate::{
+    error::{INSUFFICIENT_INPUT_AMOUNT, NOT_AUTHORIZED},
+    Contract,
+};
 
 impl Contract {
     pub fn get_balance_0_promise(&self) -> Promise {
@@ -126,16 +129,34 @@ impl Contract {
         [amount_0.as_i128(), amount_1.as_i128()]
     }
 
-    pub fn internal_collect_token_0_to_mint(&mut self, account: &AccountId, amount: u128) {
-        let deposited_token_opt = self.deposited_token_0.get(account);
+    pub fn internal_collect_token_0_to_mint(
+        &mut self,
+        owner: &AccountId,
+        caller: &AccountId,
+        amount: u128,
+    ) {
+        if owner != caller {
+            let approval = self.approved_token_0.get(owner);
+            match approval {
+                Some(approved) => {
+                    if &approved != caller {
+                        env::panic_str(NOT_AUTHORIZED);
+                    }
+                }
+                None => {
+                    env::panic_str(NOT_AUTHORIZED);
+                }
+            }
+        }
+
+        let deposited_token_opt = self.deposited_token_0.get(owner);
         match deposited_token_opt {
             Some(deposited) => {
                 if deposited < amount {
                     env::panic_str(INSUFFICIENT_INPUT_AMOUNT);
                 }
 
-                self.deposited_token_0
-                    .insert(account, &(deposited - amount));
+                self.deposited_token_0.insert(owner, &(deposited - amount));
             }
             None => {
                 env::panic_str(INSUFFICIENT_INPUT_AMOUNT);
@@ -143,16 +164,34 @@ impl Contract {
         }
     }
 
-    pub fn internal_collect_token_1_to_mint(&mut self, account: &AccountId, amount: u128) {
-        let deposited_token_opt = self.deposited_token_1.get(account);
+    pub fn internal_collect_token_1_to_mint(
+        &mut self,
+        owner: &AccountId,
+        caller: &AccountId,
+        amount: u128,
+    ) {
+        if owner != caller {
+            let approval = self.approved_token_1.get(owner);
+            match approval {
+                Some(approved) => {
+                    if &approved != caller {
+                        env::panic_str(NOT_AUTHORIZED);
+                    }
+                }
+                None => {
+                    env::panic_str(NOT_AUTHORIZED);
+                }
+            }
+        }
+
+        let deposited_token_opt = self.deposited_token_1.get(owner);
         match deposited_token_opt {
             Some(deposited) => {
                 if deposited < amount {
                     env::panic_str(INSUFFICIENT_INPUT_AMOUNT);
                 }
 
-                self.deposited_token_1
-                    .insert(account, &(deposited - amount));
+                self.deposited_token_1.insert(owner, &(deposited - amount));
             }
             None => {
                 env::panic_str(INSUFFICIENT_INPUT_AMOUNT);

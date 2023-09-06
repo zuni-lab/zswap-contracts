@@ -69,14 +69,21 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
         .into_result()?;
     println!("\tManager contract: {}", manager_contract.id());
 
+    let initial_sqrt_price_x96 = U128::from(10 * (2_u128).pow(96));
     deployer
         .call(manager_contract.id(), "create_pool")
-        .args_json((token_0_contract.id(), token_1_contract.id(), POOL_FEE))
+        .args_json((
+            token_0_contract.id(),
+            token_1_contract.id(),
+            POOL_FEE,
+            initial_sqrt_price_x96,
+        ))
         .deposit(parse_near!("30 N"))
         .max_gas()
         .transact()
         .await?
         .into_result()?;
+
     let pool = deployer
         .call(factory_contract.id(), "get_pool")
         .args_json((token_0_contract.id(), token_1_contract.id(), POOL_FEE))
@@ -85,15 +92,6 @@ pub async fn init(worker: &Worker<impl DevNetwork>) -> anyhow::Result<TestContex
         .json::<PoolView>()?;
     let pool_id: AccountId = pool.pool_id.to_string().parse().unwrap();
     println!("\tPool contract: {}", pool_id);
-
-    let initial_sqrt_price_x96 = U128::from(10 * (2_u128).pow(96));
-    deployer
-        .call(&pool_id, "initialize")
-        .args_json(json!({ "sqrt_price_x96": initial_sqrt_price_x96 }))
-        .max_gas()
-        .transact()
-        .await?
-        .into_result()?;
     println!("\tInitialized with token_1/token_0: 100");
 
     Ok(TestContext {
