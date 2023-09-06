@@ -1,9 +1,12 @@
+#![allow(clippy::assign_op_pattern)]
+
 use ethnum::I256;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use uint::construct_uint;
 
 construct_uint! {
     /// 256-bit unsigned integer.
+    #[allow(clippy::assign_op_pattern)]
     #[derive(BorshDeserialize, BorshSerialize)]
     pub struct U256(4);
 }

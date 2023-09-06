@@ -6,7 +6,8 @@ use crate::utils::Slot0;
 pub trait CoreZswapPool {
     fn mint(
         &mut self,
-        owner: AccountId,
+        payer: AccountId,
+        recipient: AccountId,
         lower_tick: i32,
         upper_tick: i32,
         amount: U128,
@@ -21,9 +22,16 @@ pub trait CoreZswapPool {
         sqrt_price_limit_x96: Option<U128>,
     ) -> PromiseOrValue<U128>;
 
-    // fn burn(&mut self, from: AccountId, amount: u128);
+    fn burn(&mut self, lower_tick: i32, upper_tick: i32, amount: U128) -> [U128; 2];
 
-    // fn collect(&mut self, token_in: AccountId);
+    fn collect(
+        &mut self,
+        recipient: AccountId,
+        lower_tick: i32,
+        upper_tick: i32,
+        amount_0_requested: U128,
+        amount_1_requested: U128,
+    ) -> [U128; 2];
 
     fn get_slot_0(&self) -> Slot0;
 }

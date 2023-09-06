@@ -7,18 +7,24 @@ use crate::ContractExt;
 
 pub trait ManagerCallback {
     fn mint_callback(
+        &mut self,
         used_amounts_res: Result<[U128; 2], PromiseError>,
         amount_0_min: u128,
         amount_1_min: u128,
     ) -> [U128; 2];
 
-    fn manager_swap_callback(amount_out_min: U128, amount_received: Result<U128, PromiseError>);
+    fn manager_swap_callback(
+        &mut self,
+        amount_out_min: U128,
+        amount_received: Result<U128, PromiseError>,
+    );
 }
 
 #[near_bindgen]
 impl ManagerCallback for Contract {
     #[private]
     fn mint_callback(
+        &mut self,
         #[callback_result] used_amounts_res: Result<[U128; 2], PromiseError>,
         amount_0_min: u128,
         amount_1_min: u128,
@@ -41,6 +47,7 @@ impl ManagerCallback for Contract {
     #[allow(unused)]
     #[private]
     fn manager_swap_callback(
+        &mut self,
         amount_out_min: U128,
         #[callback_result] amount_received: Result<U128, PromiseError>,
     ) {
