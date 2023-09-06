@@ -194,6 +194,9 @@ $ near call $ZNEAR ft_transfer_call '{"receiver_id":"'$ZSWAP_MANAGER'", "amount"
 ## Step 5: Burn
 
 ```sh
+# View current NFTs
+$ near view $ZSWAP_MANAGER nft_tokens_for_owner '{"account_id":"zswap.testnet"}'
+
 $ near call $ZSWAP_MANAGER burn '{"nft_id":"0"}' --gas 300000000000000 --accountId zswap.testnet
 [ '505326', '99999999' ]
 ```
