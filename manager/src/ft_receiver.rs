@@ -42,12 +42,8 @@ impl FungibleTokenReceiver for Contract {
             } => {
                 let receipient = sender_id;
                 let zero_for_one = token_in < token_out;
-                let pool_id = pool_account::compute_account(
-                    self.factory.clone(),
-                    token_in.clone(),
-                    token_out,
-                    fee,
-                );
+                let pool_id =
+                    pool_account::compute_account(&self.factory, &token_in, &token_out, fee);
                 ext_ft_core::ext(token_in)
                     .with_attached_deposit(ONE_YOCTO)
                     .ft_transfer_call(pool_id.clone(), amount_in, None, String::from(""))

@@ -29,12 +29,7 @@ impl Contract {
             Ordering::Equal => env::panic_str(TOKENS_MUST_BE_DIFFERENT),
         }
 
-        pool_account::compute_account(
-            self.factory.clone(),
-            ordered_token_0.clone(),
-            ordered_token_1.clone(),
-            fee,
-        )
+        pool_account::compute_account(&self.factory, ordered_token_0, ordered_token_1, fee)
     }
 
     pub fn internal_calculate_liquidity(

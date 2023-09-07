@@ -1,15 +1,15 @@
 use ft_storage::ext_ft_storage;
 use near_contract_standards::fungible_token::metadata::{ext_ft_metadata, FungibleTokenMetadata};
 use near_contract_standards::non_fungible_token::metadata::{
-    NFTContractMetadata, TokenMetadata, NFT_METADATA_SPEC,
+    NFTContractMetadata, NFT_METADATA_SPEC,
 };
 use near_contract_standards::non_fungible_token::NonFungibleToken;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LazyOption, LookupMap, UnorderedSet};
-use near_sdk::json_types::{Base64VecU8, I128, U128};
+use near_sdk::json_types::{I128, U128};
 use near_sdk::{
-    env, log, near_bindgen, serde_json, AccountId, Balance, BorshStorageKey, CryptoHash,
-    PanicOnDefault, Promise, PromiseError,
+    env, log, near_bindgen, AccountId, Balance, BorshStorageKey, CryptoHash, PanicOnDefault,
+    Promise, PromiseError,
 };
 use zswap_math_library::num256::U256;
 use zswap_math_library::{liquidity_math, sqrt_price_math, tick_math};
@@ -168,63 +168,23 @@ impl Contract {
         );
         log!("Liquidity: {}", liquidity);
 
-        // mint nft
-        let token_0_meta = token_0_meta_res.unwrap();
-        let token_1_meta = token_1_meta_res.unwrap();
+        if token_0_meta_res.is_err() || token_1_meta_res.is_err() {
+            env::panic_str(INVALID_FT_METADATA);
+        }
 
-        let symbol_0 = &token_0_meta.symbol;
-        let symbol_1 = &token_1_meta.symbol;
-
-        let nft_title = format!("{}/{}", symbol_0, symbol_1);
-        let nft_description = format!("ZSwap Liquidity NFT for {}", &pool);
-        let nft_media = generate_nft_media(
-            self.nft_id,
-            symbol_0,
-            symbol_1,
-            params.lower_tick,
-            params.upper_tick,
-            params.fee,
-        );
-        let nft_media_hash = env::sha256(nft_media.as_bytes());
-        let liquidity_info = NftLiquidityInfo {
-            token_0: params.token_0.clone(),
-            token_1: params.token_1.clone(),
-            fee: params.fee,
+        let mint_callback_params = MintCallbackParams {
+            token_0: params.token_0,
+            token_1: params.token_1,
             lower_tick: params.lower_tick,
             upper_tick: params.upper_tick,
+            fee: params.fee,
             liquidity,
+            symbol_0: token_0_meta_res.unwrap().symbol,
+            symbol_1: token_1_meta_res.unwrap().symbol,
+            recipient: recipient.clone(),
+            amount_0_min: params.amount_0_min,
+            amount_1_min: params.amount_1_min,
         };
-
-        let liquidity_nft_metadata = TokenMetadata {
-            title: Some(nft_title),
-            description: Some(nft_description),
-            media: Some(nft_media),
-            media_hash: Some(Base64VecU8::from(nft_media_hash)),
-            copies: None,
-            issued_at: None,
-            expires_at: None,
-            starts_at: None,
-            updated_at: None,
-            extra: Some(serde_json::to_string(&liquidity_info).unwrap()),
-            reference: None,
-            reference_hash: None,
-        };
-
-        self.nft.internal_mint(
-            self.nft_id.to_string(),
-            recipient.clone(),
-            Some(liquidity_nft_metadata),
-        );
-        self.nft_positions.insert(
-            &self.nft_id,
-            &NftPosition {
-                pool: pool.clone(),
-                lower_tick: params.lower_tick,
-                upper_tick: params.upper_tick,
-                liquidity,
-            },
-        );
-        self.nft_id += 1;
 
         ext_zswap_pool::ext(pool)
             .mint(
@@ -236,7 +196,8 @@ impl Contract {
             )
             .then(
                 Self::ext(env::current_account_id())
-                    .mint_callback(params.amount_0_min.into(), params.amount_1_min.into()),
+                    .with_attached_deposit(env::attached_deposit())
+                    .mint_callback(mint_callback_params),
             )
     }
 
