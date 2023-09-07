@@ -44,9 +44,9 @@ impl Contract {
         }
 
         let subaccount = pool_account::compute_account(
-            env::current_account_id(),
-            ordered_token_0.clone(),
-            ordered_token_1.clone(),
+            &env::current_account_id(),
+            &ordered_token_0,
+            &ordered_token_1,
             fee,
         );
 

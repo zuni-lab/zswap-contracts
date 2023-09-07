@@ -1,9 +1,9 @@
 use near_sdk::{env, AccountId};
 
 pub fn compute_account(
-    factory: AccountId,
-    token_0: AccountId,
-    token_1: AccountId,
+    factory: &AccountId,
+    token_0: &AccountId,
+    token_1: &AccountId,
     fee: u32,
 ) -> AccountId {
     let hash_data = env::keccak256(

@@ -29,6 +29,22 @@ pub struct MintParams {
 
 #[derive(Serialize, Deserialize)]
 #[serde(crate = "near_sdk::serde")]
+pub struct MintCallbackParams {
+    pub token_0: AccountId,
+    pub token_1: AccountId,
+    pub lower_tick: i32,
+    pub upper_tick: i32,
+    pub fee: u32,
+    pub liquidity: u128,
+    pub symbol_0: String,
+    pub symbol_1: String,
+    pub recipient: AccountId,
+    pub amount_0_min: U128,
+    pub amount_1_min: U128,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(crate = "near_sdk::serde")]
 pub struct SwapSingleParams {
     pub token_in: AccountId,
     pub token_out: AccountId,
